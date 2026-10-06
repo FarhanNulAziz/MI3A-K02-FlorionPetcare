@@ -1,0 +1,47 @@
+# ================================
+# Environment & secrets
+# ================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ================================
+# Node / Expo
+# ================================
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+npm-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# ================================
+# Laravel
+# ================================
+/backend/vendor/
+/backend/storage/*.key
+/backend/storage/framework/cache/data/*
+!/backend/storage/framework/cache/data/.gitignore
+/backend/storage/framework/sessions/*
+!/backend/storage/framework/sessions/.gitignore
+/backend/storage/framework/views/*
+!/backend/storage/framework/views/.gitignore
+/backend/storage/logs/*
+!/backend/storage/logs/.gitignore
+/backend/bootstrap/cache/*
+!/backend/bootstrap/cache/.gitignore
+/backend/public/storage
+/backend/public/hot
+/backend/.phpunit.result.cache
+
+# ================================
+# OS / Editor
+# ================================
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
