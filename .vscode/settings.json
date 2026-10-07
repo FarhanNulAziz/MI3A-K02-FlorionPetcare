@@ -1,0 +1,17 @@
+{
+    "editor.formatOnSave":true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+    },
+    "files.eol": "\n",
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "emmet.includeLanguages": {
+        "javascript": "javascriptreact"
+    },
+    "php.validate.executablePath": "C:\\laragon\\bin\\php\\php82\\php.exe",
+    "intelephense.environment.phpVersion": "8.5.0",
+    "terminal.integrated.defaultProfile.windows": "PowerShell"
+
+}

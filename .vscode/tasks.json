@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label":"Backend: serve",
+            "type":"shell",
+            "command":"php artisan serve --host=0.0.0.0 --port=8000",
+            "options": {"cwd": "${workspaceFolder}/backend"},
+            "problemMatcher": []
+        },
+        {
+            "label":"Backend: migrate fresh seed",
+            "type":"shell",
+            "command":"php artisan migrate:fresh --seed",
+            "options": {"cwd": "${workspaceFolder}/backend"},
+            "problemMatcher": []
+        },
+        {
+            "label": "Mobile: start",
+            "type": "shell",
+            "command": "npx expo start -c",
+            "options": {"cwd": "${workspaceFolder}/mobile"},
+            "problemMatcher": []
+        }
+    ]
+}
