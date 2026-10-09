@@ -1,20 +1,18 @@
 {
-    "recommendations": [
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "expo.vscode-expo-tools",
-        "msjsdiag.vscode-react-native",
-        "bmewburn.vscode-intelephense-client",
-        "onecentlin.laravel-blade",
-        "amiralizadeh9480.laravel-extra-intellisense",
-        "ryannaddy.laravel-artisan",
-        "xdebug.php-debug",
-        "mikestead.dotenv",
-        "eamodio.gitlens",
-        "usernamehw.errorlens",
-        "PKief.material-icon-theme",
-        "rangav.vscode-thunder-client",
-        "cweijan.dbclient-jdbc",
-        "EditorConfig.EditorConfig"
-    ]
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "expo.vscode-expo-tools",
+    "msjsdiag.vscode-react-native",
+    "bmewburn.vscode-intelephense-client",
+    "onecentlin.laravel-blade",
+    "amiralizadeh9480.laravel-extra-intellisense",
+    "ryannaddy.laravel-artisan",
+    "xdebug.php-debug",
+    "mikestead.dotenv",
+    "eamodio.gitlens",
+    "PKief.material-icon-theme",
+    "rangav.vscode-thunder-client",
+    "EditorConfig.EditorConfig"
+  ]
 }

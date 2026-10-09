@@ -45,3 +45,5 @@ yarn-error.log*
 Thumbs.db
 .idea/
 *.swp
+/vendor/
+/node_modules/
