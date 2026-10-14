@@ -8,16 +8,31 @@ use Illuminate\Validation\Rule;
 
 class PatientController extends Controller
 {
-    public function index()
-    {
-        // Logic to retrieve and return a list of patients
-        $patients = Patient::with('owner')->latest()->get();
+    public function index(Request $request)
+{
+    $search = $request->query('search');
 
+    $query = Patient::with('owner');
+
+    if ($search !== null && trim($search) !== '') {
+        $query->where('name', 'like', '%' . trim($search) . '%');
+    }
+
+    $patients = $query->latest()->get();
+
+    if ($search !== null && trim($search) !== '' && $patients->isEmpty()) {
         return response()->json([
-            'success' => true,
-            'data' => $patients,
+            'success' => false,
+            'message' => 'Data tidak ditemukan',
+            'data' => [],
         ]);
     }
+
+    return response()->json([
+        'success' => true,
+        'data' => $patients,
+    ]);
+}
 
     public function store(Request $request)
     {
