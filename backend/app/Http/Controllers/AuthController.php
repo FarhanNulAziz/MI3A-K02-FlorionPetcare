@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\JWTGuard;
 
 class AuthController extends Controller
@@ -14,7 +16,6 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        // Pesan sengaja sama untuk email tidak terdaftar maupun password salah.
         if (! $token = $this->guard()->attempt($credentials)) {
             return response()->json([
                 'success' => false,
@@ -26,8 +27,7 @@ class AuthController extends Controller
         $user = $this->guard()->user();
 
         if (! $user->is_active) {
-            $this->guard()->logout(); // batalkan token yang baru dibuat
-
+            $this->guard()->logout();
             return response()->json([
                 'success' => false,
                 'message' => 'Akun Anda tidak aktif. Hubungi admin.',
@@ -35,6 +35,28 @@ class AuthController extends Controller
         }
 
         return $this->respondWithToken($token, $user, 'Login berhasil');
+    }
+
+    public function register(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:6',
+        ]);
+
+        $user = User::create([
+            'name'     => $validated['name'],
+            'email'    => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role'     => 'pemilik', // DIPAKSA HANYA BISA PEMILIK
+            'is_active'=> true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registrasi berhasil. Silakan login.',
+        ], 201);
     }
 
     public function me(): JsonResponse
@@ -58,10 +80,10 @@ class AuthController extends Controller
             'message' => 'Berhasil keluar',
         ]);
     }
+
     public function refresh(): JsonResponse
     {
         $token = $this->guard()->refresh();
-
         /** @var User $user */
         $user = $this->guard()->setToken($token)->user();
 
@@ -72,9 +94,9 @@ class AuthController extends Controller
     {
         /** @var JWTGuard $guard */
         $guard = Auth::guard('api');
-
         return $guard;
     }
+
     private function respondWithToken(string $token, User $user, string $message): JsonResponse
     {
         return response()->json([
@@ -84,7 +106,7 @@ class AuthController extends Controller
             'menus' => $user->menus(),
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => $this->guard()->factory()->getTTL() * 60, // detik
+            'expires_in' => $this->guard()->factory()->getTTL() * 60,
         ]);
     }
 

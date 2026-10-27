@@ -12,9 +12,10 @@ class UserSeeder extends Seeder
     {
         $accounts = [
             ['Admin Florion', 'admin@florion.test', 'admin123', User::ROLE_ADMIN],
-            ['Paramedik', 'paramedik@florion.test', 'paramedik123', User::ROLE_PARAMEDIK],
-            ['Dokter', 'dokter@florion.test', 'dokter123', User::ROLE_DOKTER],
             ['Manajer', 'manajer@florion.test', 'manajer123', User::ROLE_MANAJER],
+            ['Dokter', 'dokter@florion.test', 'dokter123', User::ROLE_DOKTER],
+            ['Paramedik', 'paramedik@florion.test', 'paramedik123', User::ROLE_PARAMEDIK],
+            ['Pemilik Hewan', 'pemilik@florion.test', 'pemilik123', 'pemilik'],
         ];
 
         foreach ($accounts as [$name, $email, $password, $role]) {

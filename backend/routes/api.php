@@ -21,3 +21,5 @@ Route::middleware(['auth:api', 'role:admin,paramedik'])->group(function () {
     Route::apiResource('patients', PatientController::class);
      Route::apiResource('services', ServiceController::class);
 });
+
+Route::post('/register', [AuthController::class, 'register']);

@@ -11,10 +11,12 @@ import {
     RefreshControl,
     SafeAreaView,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "expo-router/react-navigation";
 import { getServices, deleteService } from '../../services/serviceService';
+import { useRouter } from 'expo-router';
 
-export default function ServiceListScreen({ navigation }) {
+export default function ServiceListScreen() {
+    const router = useRouter()
     const [services, setServices] = useState([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
