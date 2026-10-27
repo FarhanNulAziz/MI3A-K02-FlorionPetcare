@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { getUser, clearSession } from '../../utils/storage';
 import api from '../../config/api';
+import CustomAlert from '../../components/custom-alert';
 
 export default function Profil() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info' as any, onConfirm: undefined as any });
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -23,23 +26,11 @@ export default function Profil() {
     router.replace('/login');
   };
 
-  const handleLogout = () => {
-    // --- LOGIKA POP-UP KONFIRMASI ---
-    if (Platform.OS === 'web') {
-      // Di Web: pakai confirm bawaan browser
-      const yakin = window.confirm('Apakah Anda yakin ingin keluar dari aplikasi?');
-      if (yakin) prosesLogout();
-    } else {
-      // Di HP: pakai Alert
-      Alert.alert(
-        'Konfirmasi Keluar',
-        'Apakah Anda yakin ingin keluar dari aplikasi?',
-        [
-          { text: 'Batal', style: 'cancel' },
-          { text: 'Keluar', style: 'destructive', onPress: prosesLogout }
-        ]
-      );
-    }
+  const handleLogoutClick = () => {
+    setAlert({
+      visible: true, title: 'Konfirmasi Keluar', message: 'Apakah Anda yakin ingin keluar dari aplikasi?',
+      type: 'confirm', onConfirm: prosesLogout
+    });
   };
 
   return (
@@ -61,12 +52,17 @@ export default function Profil() {
       </View>
 
       <View style={styles.menuWrap}>
-        <TouchableOpacity style={styles.btnLogout} onPress={handleLogout}>
+        <TouchableOpacity style={styles.btnLogout} onPress={handleLogoutClick}>
           <Text style={styles.btnLogoutText}>🚪 Keluar Aplikasi</Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.version}>Versi 1.0.0 © 2026 Florion Petcare</Text>
+
+      <CustomAlert
+        visible={alert.visible} title={alert.title} message={alert.message} type={alert.type}
+        onClose={() => setAlert({ ...alert, visible: false })} onConfirm={alert.onConfirm}
+      />
     </SafeAreaView>
   );
 }

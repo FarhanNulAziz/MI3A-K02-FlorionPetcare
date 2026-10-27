@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import api from '../../config/api';
+import { getUser } from '../../utils/storage';
 
 export default function PatientListScreen() {
     const router = useRouter();
@@ -16,7 +17,20 @@ export default function PatientListScreen() {
         setLoading(true);
         try {
             const res = await api.get(`/patients${keyword ? `?search=${keyword}` : ''}`);
-            if (res.data.success) setPatients(res.data.data || []);
+            if (res.data.success) {
+                let dataPasien = res.data.data || [];
+
+                // --- FILTER BERDASARKAN ROLE ---
+                const currentUser = await getUser();
+                if (currentUser?.role === 'pemilik') {
+                    dataPasien = dataPasien.filter((p: any) =>
+                        p.owner?.email === currentUser.email || p.owner?.name === currentUser.name
+                    );
+                }
+                // -------------------------------
+
+                setPatients(dataPasien);
+            }
         } catch (error) {
             Alert.alert('Error', 'Gagal memuat data pasien');
         } finally {
@@ -45,7 +59,6 @@ export default function PatientListScreen() {
         ]);
     };
 
-    // Fungsi untuk menentukan emoji berdasarkan jenis hewan
     const getSpeciesEmoji = (species: string) => {
         const s = species?.toLowerCase() || '';
         if (s.includes('anjing')) return '🐶';
@@ -71,7 +84,7 @@ export default function PatientListScreen() {
             <View style={styles.cardBody}>
                 <Text style={styles.ownerText}>Pemilik: {item.owner?.name || '-'}</Text>
                 <View style={styles.actions}>
-                    <TouchableOpacity onPress={() => router.push({ pathname: '/patient-form' as never, params: { patient: JSON.stringify(item) } })}>
+                    <TouchableOpacity onPress={() => router.push({ pathname: '/patient-form', params: { patient: JSON.stringify(item) } })}>
                         <Text style={styles.actionEdit}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDelete(item.id, item.name)}>
@@ -110,7 +123,7 @@ export default function PatientListScreen() {
                 />
             )}
 
-            <TouchableOpacity style={styles.fab} onPress={() => router.push({ pathname: '/patient-form' as never, params: {} })}>
+            <TouchableOpacity style={styles.fab} onPress={() => router.push('/patient-form')}>
                 <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
         </SafeAreaView>

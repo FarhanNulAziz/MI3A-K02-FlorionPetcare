@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../config/api';
+import CustomAlert from '../components/custom-alert';
 
 export default function RegisterScreen() {
     const router = useRouter();
@@ -14,31 +15,39 @@ export default function RegisterScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // State untuk CustomAlert
+    const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info' as any, onConfirm: undefined as any });
+
     const handleRegister = async () => {
         if (!name || !email || !password) {
-            return Alert.alert('Validasi Gagal', 'Nama, Email, dan Password wajib diisi!');
+            setAlert({ visible: true, title: 'Validasi Gagal', message: 'Nama, Email, dan Password wajib diisi!', type: 'error', onConfirm: undefined });
+            return;
+        }
+
+        if (password.length < 6) {
+            setAlert({ visible: true, title: 'Validasi Gagal', message: 'Password minimal 6 karakter!', type: 'error', onConfirm: undefined });
+            return;
         }
 
         setLoading(true);
         try {
+            // Hanya mengirim name, email, password.
+            // Backend akan otomatis mengatur role menjadi 'pemilik'
             const response = await api.post('/register', { name, email, password });
 
             if (response.data.success) {
-                if (Platform.OS === 'web') {
-                    window.alert('Pendaftaran Berhasil!\nSilakan login dengan akun baru Anda.');
-                    router.replace('/login');
-                } else {
-                    Alert.alert(
-                        'Pendaftaran Berhasil',
-                        'Akun Anda telah berhasil dibuat. Silakan login.',
-                        [{ text: 'OK', onPress: () => router.replace('/login') }]
-                    );
-                }
+                setAlert({
+                    visible: true,
+                    title: 'Pendaftaran Berhasil',
+                    message: 'Akun Anda telah berhasil dibuat. Silakan login dengan akun baru Anda.',
+                    type: 'success',
+                    onConfirm: () => router.replace('/login')
+                });
             }
         } catch (error: any) {
             console.log("Error API:", error.response?.data || error.message);
-            const msg = error.response?.data?.message || 'Terjadi kesalahan jaringan';
-            Alert.alert('Pendaftaran Gagal', msg);
+            const msg = error.response?.data?.message || 'Terjadi kesalahan jaringan.';
+            setAlert({ visible: true, title: 'Pendaftaran Gagal', message: msg, type: 'error', onConfirm: undefined });
         } finally {
             setLoading(false);
         }
@@ -63,17 +72,38 @@ export default function RegisterScreen() {
                     <View style={styles.card}>
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Nama Lengkap</Text>
-                            <TextInput style={styles.input} placeholder="Budi Santoso" value={name} onChangeText={setName} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Contoh: Budi Santoso"
+                                placeholderTextColor="#9CA3AF"
+                                value={name}
+                                onChangeText={setName}
+                            />
                         </View>
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Alamat Email</Text>
-                            <TextInput style={styles.input} placeholder="budi@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="budi@email.com"
+                                placeholderTextColor="#9CA3AF"
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
                         </View>
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Password</Text>
-                            <TextInput style={styles.input} placeholder="Minimal 6 karakter" value={password} onChangeText={setPassword} secureTextEntry />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Minimal 6 karakter"
+                                placeholderTextColor="#9CA3AF"
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
+                            />
                         </View>
 
                         <TouchableOpacity onPress={handleRegister} disabled={loading} style={styles.btnWrap}>
@@ -84,6 +114,16 @@ export default function RegisterScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* PANGGIL CUSTOM ALERT DI SINI */}
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                onClose={() => setAlert({ ...alert, visible: false })}
+                onConfirm={alert.onConfirm}
+            />
         </View>
     );
 }

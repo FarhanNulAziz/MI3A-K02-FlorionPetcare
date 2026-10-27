@@ -51,7 +51,7 @@ export default function TabLayout() {
         options={{
           title: 'Pemilik',
           href: canAccessPemilik ? '/pemilik' : undefined,
-          tabBarButton: canAccessPemilik ? undefined : () => null, // Sembunyikan total jika tidak punya akses
+          tabBarButton: canAccessPemilik ? undefined : () => null,
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text>,
         }}
       />
@@ -59,7 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="pasien"
         options={{
-          title: 'Pasien',
+          title: role === 'pemilik' ? 'Hewan Saya' : 'Pasien',
           href: canAccessPasien ? '/pasien' : undefined,
           tabBarButton: canAccessPasien ? undefined : () => null,
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🐶</Text>,

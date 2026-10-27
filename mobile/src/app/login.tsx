@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { login } from '../services/authService';
+import CustomAlert from '../components/custom-alert';
 
 const ROLES = [
   { id: 'admin', label: 'Admin / Manajer' },
@@ -22,8 +20,13 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info' as any, onConfirm: undefined as any });
+
     const handleLogin = async () => {
-        if (!email || !password) return Alert.alert('Validasi', 'Email dan Password wajib diisi!');
+        if (!email || !password) {
+            setAlert({ visible: true, title: 'Validasi Gagal', message: 'Email dan Password wajib diisi!', type: 'error', onConfirm: undefined });
+            return;
+        }
 
         setLoading(true);
         try {
@@ -38,28 +41,15 @@ export default function LoginScreen() {
             }
 
             if (!isRoleMatch) {
-                Alert.alert('Akses Ditolak', `Akun Anda terdaftar sebagai ${userRoleFromDB}, bukan ${selectedRole}.`);
+                setAlert({ visible: true, title: 'Akses Ditolak', message: `Akun Anda terdaftar sebagai "${userRoleFromDB}", bukan "${selectedRole}".`, type: 'error', onConfirm: undefined });
                 return;
             }
 
-            if (Platform.OS === 'web') {
-                window.alert(`Login Berhasil!\nSelamat datang, ${response.user.name}.`);
-                router.replace('/(tabs)');
-            } else {
-                Alert.alert(
-                    'Login Berhasil',
-                    `Selamat datang kembali, ${response.user.name}!`,
-                    [{ text: 'Lanjutkan', onPress: () => router.replace('/(tabs)') }]
-                );
-            }
+            setAlert({ visible: true, title: 'Login Berhasil', message: `Selamat datang kembali, ${response.user.name}!`, type: 'success', onConfirm: () => router.replace('/(tabs)') });
 
         } catch (error: any) {
             const message = error.response?.data?.message || 'Terjadi kesalahan jaringan';
-            if (error.response?.status === 401) {
-                Alert.alert('Login Gagal', 'Email atau password salah.');
-            } else {
-                Alert.alert('Login Gagal', message);
-            }
+            setAlert({ visible: true, title: 'Login Gagal', message, type: 'error', onConfirm: undefined });
         } finally {
             setLoading(false);
         }
@@ -99,28 +89,13 @@ export default function LoginScreen() {
                     <View style={styles.card}>
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Alamat Email</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder={`email@${selectedRole}.test`}
-                                placeholderTextColor="#9CA3AF"
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                            />
+                            <TextInput style={styles.input} placeholder={`email@${selectedRole}.test`} placeholderTextColor="#9CA3AF" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
                         </View>
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Password</Text>
                             <View style={styles.passwordWrap}>
-                                <TextInput
-                                    style={styles.inputPassword}
-                                    placeholder="••••••••"
-                                    placeholderTextColor="#9CA3AF"
-                                    value={password}
-                                    onChangeText={setPassword}
-                                    secureTextEntry={!showPassword}
-                                />
+                                <TextInput style={styles.inputPassword} placeholder="••••••••" placeholderTextColor="#9CA3AF" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
                                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
                                     <Text>{showPassword ? '🙈' : '👁️'}</Text>
                                 </TouchableOpacity>
@@ -140,9 +115,13 @@ export default function LoginScreen() {
                             <Text style={styles.footerLink}>Daftar Sekarang</Text>
                         </TouchableOpacity>
                     </View>
-
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            <CustomAlert
+                visible={alert.visible} title={alert.title} message={alert.message} type={alert.type}
+                onClose={() => setAlert({ ...alert, visible: false })} onConfirm={alert.onConfirm}
+            />
         </View>
     );
 }
