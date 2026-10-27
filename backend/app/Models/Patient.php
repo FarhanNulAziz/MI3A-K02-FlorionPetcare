@@ -9,13 +9,14 @@ class Patient extends Model
 {
     protected $table = 'patients';
 
-    protected $fillable = [
+        protected $fillable = [
+        'owner_id',
         'name',
         'species',
         'breed',
+        'gender', // <-- Tambahkan ini
         'age',
         'weight',
-        'owner_id',
         'notes',
     ];
 

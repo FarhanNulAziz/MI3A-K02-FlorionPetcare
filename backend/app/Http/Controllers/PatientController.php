@@ -9,30 +9,19 @@ use Illuminate\Validation\Rule;
 class PatientController extends Controller
 {
     public function index(Request $request)
-{
-    $search = $request->query('search');
+    {
+        $search = $request->query('search');
+        $query = Patient::with('owner');
 
-    $query = Patient::with('owner');
+        if ($search) {
+            $query->where('name', 'like', '%' . trim($search) . '%');
+        }
 
-    if ($search !== null && trim($search) !== '') {
-        $query->where('name', 'like', '%' . trim($search) . '%');
-    }
-
-    $patients = $query->latest()->get();
-
-    if ($search !== null && trim($search) !== '' && $patients->isEmpty()) {
         return response()->json([
-            'success' => false,
-            'message' => 'Data tidak ditemukan',
-            'data' => [],
+            'success' => true,
+            'data' => $query->latest()->get(),
         ]);
     }
-
-    return response()->json([
-        'success' => true,
-        'data' => $patients,
-    ]);
-}
 
     public function store(Request $request)
     {
@@ -41,24 +30,27 @@ class PatientController extends Controller
             'species' => [
                 'required',
                 'string',
-                'max:100',
-                Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Lainnya']),
+                Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Hamster', 'Burung', 'Lainnya']),
+            ],
+            'gender' => [
+                'required',
+                'string',
+                Rule::in(['Jantan', 'Betina']),
             ],
             'breed' => ['nullable', 'string', 'max:255'],
             'age' => ['required', 'integer', 'min:1'],
-            'weight' => ['required', 'numeric', 'gt:0', 'decimal:0,2'],
+            'weight' => ['required', 'numeric', 'gt:0'],
             'owner_id' => ['required', 'integer', 'exists:owners,id'],
             'notes' => ['nullable', 'string'],
         ], [
             'name.required' => 'Nama hewan wajib diisi.',
             'species.required' => 'Jenis hewan wajib dipilih.',
-            'species.in' => 'Jenis hewan tidak valid.',
+            'gender.required' => 'Jenis kelamin wajib dipilih.',
             'age.required' => 'Umur hewan wajib diisi.',
-            'age.min' => 'Umur hewan harus lebih dari 0.',
+            'age.min' => 'Umur hewan minimal 1 bulan.',
             'weight.required' => 'Berat hewan wajib diisi.',
             'weight.gt' => 'Berat hewan harus lebih dari 0 kg.',
             'owner_id.required' => 'Pemilik wajib dipilih.',
-            'owner_id.exists' => 'Pemilik yang dipilih tidak ditemukan.',
         ]);
 
         $patient = Patient::create($validated);
@@ -85,24 +77,18 @@ class PatientController extends Controller
             'species' => [
                 'required',
                 'string',
-                'max:100',
-                Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Lainnya']),
+                Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Hamster', 'Burung', 'Lainnya']),
+            ],
+            'gender' => [
+                'required',
+                'string',
+                Rule::in(['Jantan', 'Betina']),
             ],
             'breed' => ['nullable', 'string', 'max:255'],
             'age' => ['required', 'integer', 'min:1'],
-            'weight' => ['required', 'numeric', 'gt:0', 'decimal:0,2'],
+            'weight' => ['required', 'numeric', 'gt:0'],
             'owner_id' => ['required', 'integer', 'exists:owners,id'],
             'notes' => ['nullable', 'string'],
-        ], [
-            'name.required' => 'Nama hewan wajib diisi.',
-            'species.required' => 'Jenis hewan wajib dipilih.',
-            'species.in' => 'Jenis hewan tidak valid.',
-            'age.required' => 'Umur hewan wajib diisi.',
-            'age.min' => 'Umur hewan harus lebih dari 0.',
-            'weight.required' => 'Berat hewan wajib diisi.',
-            'weight.gt' => 'Berat hewan harus lebih dari 0 kg.',
-            'owner_id.required' => 'Pemilik wajib dipilih.',
-            'owner_id.exists' => 'Pemilik yang dipilih tidak ditemukan.',
         ]);
 
         $patient->update($validated);

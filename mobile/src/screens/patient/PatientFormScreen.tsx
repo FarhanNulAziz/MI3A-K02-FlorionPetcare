@@ -1,31 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
-    ScrollView, Alert, ActivityIndicator, SafeAreaView, Modal, FlatList, Platform
+    ScrollView, ActivityIndicator, SafeAreaView, Modal, FlatList, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../config/api';
+import CustomAlert from '../../components/custom-alert';
+
+const SPECIES_OPTIONS = ['Anjing', 'Kucing', 'Kelinci', 'Hamster', 'Burung', 'Lainnya'];
+const GENDER_OPTIONS = ['Jantan', 'Betina'];
 
 export default function PatientFormScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
-    // Cek apakah sedang Edit (ada parameter patient) atau Tambah baru
     const isEdit = !!params.patient;
-    const data = isEdit ? JSON.parse(params.patient as string) : {};
+    let data: any = {};
+    if (isEdit) {
+        try { data = JSON.parse(params.patient as string); } catch (e) {}
+    }
 
     const [name, setName] = useState(data.name || '');
-    const [species, setSpecies] = useState(data.species || 'anjing');
-    const [gender, setGender] = useState(data.gender || 'jantan');
+    const [species, setSpecies] = useState(data.species || 'Anjing');
+    const [gender, setGender] = useState(data.gender || 'Jantan');
     const [ownerId, setOwnerId] = useState(data.owner_id || null);
     const [ownerName, setOwnerName] = useState(data.owner?.name || '');
+    const [age, setAge] = useState(data.age ? String(data.age) : '');
+    const [weight, setWeight] = useState(data.weight ? String(data.weight) : '');
 
     const [owners, setOwners] = useState([]);
-    const [modalVisible, setModalVisible] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    const [ownerModal, setOwnerModal] = useState(false);
+    const [speciesModal, setSpeciesModal] = useState(false);
+    const [genderModal, setGenderModal] = useState(false);
+
+    const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info' as any, onConfirm: undefined as any });
+
     useEffect(() => {
-        // Ambil data pemilik untuk dropdown
         const fetchOwners = async () => {
             try {
                 const res = await api.get('/owners');
@@ -37,25 +49,31 @@ export default function PatientFormScreen() {
         fetchOwners();
     }, []);
 
+    // FUNGSI AMAN UNTUK KEMBALI
+    const handleBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/(tabs)/pasien'); // Kembali ke tab pasien jika tidak ada history
+        }
+    };
+
     const handleSave = async () => {
-        if (!name || !ownerId) {
-            const msg = 'Nama hewan dan Pemilik wajib diisi!';
-            if (Platform.OS === 'web') window.alert(msg);
-            else Alert.alert('Validasi', msg);
+        if (!name || !ownerId || !age || !weight) {
+            setAlert({ visible: true, title: 'Validasi Gagal', message: 'Nama hewan, Pemilik, Umur, dan Berat wajib diisi!', type: 'error', onConfirm: undefined });
             return;
         }
 
         setLoading(true);
         try {
-            // Sesuaikan payload dengan kolom di database Laravel kalian
             const payload = {
                 name,
                 species,
                 gender,
+                age: parseInt(age),
+                weight: parseFloat(weight),
                 owner_id: ownerId,
-                breed: '-',
-                weight_kg: 0,
-                age_month: 0
+                breed: '-'
             };
 
             if (isEdit) {
@@ -64,18 +82,20 @@ export default function PatientFormScreen() {
                 await api.post('/patients', payload);
             }
 
-            if (Platform.OS === 'web') {
-                window.alert('Data pasien berhasil disimpan!');
-                router.back();
-            } else {
-                Alert.alert('Sukses', 'Data berhasil disimpan', [
-                    { text: 'OK', onPress: () => router.back() }
-                ]);
-            }
+            setAlert({
+                visible: true,
+                title: 'Sukses',
+                message: 'Data pasien berhasil disimpan.',
+                type: 'success',
+                onConfirm: handleBack // Gunakan fungsi aman
+            });
         } catch (error: any) {
-            const msg = error.response?.data?.message || 'Terjadi kesalahan sistem';
-            if (Platform.OS === 'web') window.alert(msg);
-            else Alert.alert('Gagal', msg);
+            let msg = error.response?.data?.message || 'Terjadi kesalahan sistem';
+            if (error.response?.data?.errors) {
+                const firstError = Object.values(error.response.data.errors)[0];
+                msg = Array.isArray(firstError) ? firstError[0] : firstError;
+            }
+            setAlert({ visible: true, title: 'Gagal', message: msg, type: 'error', onConfirm: undefined });
         } finally {
             setLoading(false);
         }
@@ -84,36 +104,54 @@ export default function PatientFormScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                {/* Gunakan handleBack di sini */}
+                <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
                     <Text style={styles.backText}>← Kembali</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{isEdit ? 'Edit Pasien' : 'Tambah Pasien'}</Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scroll}>
-                <Text style={styles.label}>Nama Hewan *</Text>
-                <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Contoh: Milo" placeholderTextColor="#9CA3AF" />
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+                <ScrollView contentContainerStyle={styles.scroll}>
+                    <Text style={styles.label}>Nama Hewan *</Text>
+                    <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Contoh: Milo" placeholderTextColor="#9CA3AF" />
 
-                <Text style={styles.label}>Pilih Pemilik *</Text>
-                <TouchableOpacity style={styles.input} onPress={() => setModalVisible(true)}>
-                    <Text style={{ color: ownerId ? '#111827' : '#9CA3AF' }}>
-                        {ownerId ? ownerName : '-- Ketuk untuk memilih pemilik --'}
-                    </Text>
-                </TouchableOpacity>
+                    <Text style={styles.label}>Pilih Pemilik *</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setOwnerModal(true)}>
+                        <Text style={{ color: ownerId ? '#111827' : '#9CA3AF' }}>
+                            {ownerId ? ownerName : '-- Ketuk untuk memilih pemilik --'}
+                        </Text>
+                    </TouchableOpacity>
 
-                <Text style={styles.label}>Jenis Hewan</Text>
-                <TextInput style={styles.input} value={species} onChangeText={setSpecies} placeholder="anjing / kucing / dll" placeholderTextColor="#9CA3AF" />
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.label}>Umur (Bulan) *</Text>
+                            <TextInput style={styles.input} value={age} onChangeText={setAge} placeholder="Contoh: 12" keyboardType="numeric" placeholderTextColor="#9CA3AF" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.label}>Berat (Kg) *</Text>
+                            <TextInput style={styles.input} value={weight} onChangeText={setWeight} placeholder="Contoh: 4.5" keyboardType="numeric" placeholderTextColor="#9CA3AF" />
+                        </View>
+                    </View>
 
-                <Text style={styles.label}>Jenis Kelamin</Text>
-                <TextInput style={styles.input} value={gender} onChangeText={setGender} placeholder="jantan / betina" placeholderTextColor="#9CA3AF" />
+                    <Text style={styles.label}>Jenis Hewan</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setSpeciesModal(true)}>
+                        <Text style={{ color: '#111827' }}>{species}</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity style={styles.btnSave} onPress={handleSave} disabled={loading}>
-                    {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Simpan Data</Text>}
-                </TouchableOpacity>
-            </ScrollView>
+                    <Text style={styles.label}>Jenis Kelamin</Text>
+                    <TouchableOpacity style={styles.input} onPress={() => setGenderModal(true)}>
+                        <Text style={{ color: '#111827' }}>{gender}</Text>
+                    </TouchableOpacity>
 
-            {/* Modal Dropdown Pemilik */}
-            <Modal visible={modalVisible} animationType="slide" transparent={true}>
+                    <TouchableOpacity style={styles.btnSave} onPress={handleSave} disabled={loading}>
+                        {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Simpan Data</Text>}
+                    </TouchableOpacity>
+                </ScrollView>
+            </KeyboardAvoidingView>
+
+            {/* MODAL PEMILIK */}
+            <Modal visible={ownerModal} animationType="slide" transparent={true}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Pilih Pemilik</Text>
@@ -124,19 +162,72 @@ export default function PatientFormScreen() {
                                 <TouchableOpacity style={styles.modalItem} onPress={() => {
                                     setOwnerId(item.id);
                                     setOwnerName(item.name);
-                                    setModalVisible(false);
+                                    setOwnerModal(false);
                                 }}>
                                     <Text style={styles.modalItemText}>{item.name} - {item.phone}</Text>
                                 </TouchableOpacity>
                             )}
                             ListEmptyComponent={<Text style={{ textAlign: 'center', color: '#9CA3AF', marginTop: 20 }}>Belum ada data pemilik</Text>}
                         />
-                        <TouchableOpacity style={styles.modalClose} onPress={() => setModalVisible(false)}>
+                        <TouchableOpacity style={styles.modalClose} onPress={() => setOwnerModal(false)}>
                             <Text style={{ color: '#EF4444', fontWeight: 'bold' }}>Tutup</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
+
+            {/* MODAL JENIS HEWAN */}
+            <Modal visible={speciesModal} animationType="slide" transparent={true}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Pilih Jenis Hewan</Text>
+                        <FlatList
+                            data={SPECIES_OPTIONS}
+                            keyExtractor={(item) => item}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity style={styles.modalItem} onPress={() => {
+                                    setSpecies(item);
+                                    setSpeciesModal(false);
+                                }}>
+                                    <Text style={styles.modalItemText}>{item}</Text>
+                                </TouchableOpacity>
+                            )}
+                        />
+                        <TouchableOpacity style={styles.modalClose} onPress={() => setSpeciesModal(false)}>
+                            <Text style={{ color: '#EF4444', fontWeight: 'bold' }}>Tutup</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* MODAL JENIS KELAMIN */}
+            <Modal visible={genderModal} animationType="slide" transparent={true}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Pilih Jenis Kelamin</Text>
+                        <FlatList
+                            data={GENDER_OPTIONS}
+                            keyExtractor={(item) => item}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity style={styles.modalItem} onPress={() => {
+                                    setGender(item);
+                                    setGenderModal(false);
+                                }}>
+                                    <Text style={styles.modalItemText}>{item}</Text>
+                                </TouchableOpacity>
+                            )}
+                        />
+                        <TouchableOpacity style={styles.modalClose} onPress={() => setGenderModal(false)}>
+                            <Text style={{ color: '#EF4444', fontWeight: 'bold' }}>Tutup</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            <CustomAlert
+                visible={alert.visible} title={alert.title} message={alert.message} type={alert.type}
+                onClose={() => setAlert({ ...alert, visible: false })} onConfirm={alert.onConfirm}
+            />
         </SafeAreaView>
     );
 }
