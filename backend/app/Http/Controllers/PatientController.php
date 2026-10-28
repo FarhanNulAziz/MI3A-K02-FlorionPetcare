@@ -3,63 +3,81 @@
 namespace App\Http\Controllers;
 
 use App\Models\Patient;
+use App\Models\Owner;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class PatientController extends Controller
 {
     public function index(Request $request)
-{
-    $search = $request->query('search');
+    {
+        $user = $request->user();
+        $search = $request->query('search');
+        $query = Patient::with('owner');
 
-    $query = Patient::with('owner');
+        // JIKA YANG LOGIN ADALAH PEMILIK, HANYA TAMPILKAN HEWANNYA SENDIRI
+        if ($user->role === 'pemilik') {
+            $owner = Owner::where('email', $user->email)->first();
+            if ($owner) {
+                $query->where('owner_id', $owner->id);
+            } else {
+                return response()->json(['success' => true, 'data' => []]);
+            }
+        }
 
-    if ($search !== null && trim($search) !== '') {
-        $query->where('name', 'like', '%' . trim($search) . '%');
-    }
+        // Fitur Pencarian
+        if ($search) {
+            $query->where('name', 'like', '%' . trim($search) . '%');
+        }
 
-    $patients = $query->latest()->get();
-
-    if ($search !== null && trim($search) !== '' && $patients->isEmpty()) {
         return response()->json([
-            'success' => false,
-            'message' => 'Data tidak ditemukan',
-            'data' => [],
+            'success' => true,
+            'data' => $query->latest()->get(),
         ]);
     }
-
-    return response()->json([
-        'success' => true,
-        'data' => $patients,
-    ]);
-}
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $user = $request->user();
+
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'species' => [
-                'required',
-                'string',
-                'max:100',
-                Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Lainnya']),
-            ],
+            'species' => ['required', 'string', Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Lainnya'])],
+            'gender' => ['required', 'string', Rule::in(['Jantan', 'Betina'])],
             'breed' => ['nullable', 'string', 'max:255'],
             'age' => ['required', 'integer', 'min:1'],
-            'weight' => ['required', 'numeric', 'gt:0', 'decimal:0,2'],
-            'owner_id' => ['required', 'integer', 'exists:owners,id'],
+            'weight' => ['required', 'numeric', 'gt:0'],
             'notes' => ['nullable', 'string'],
-        ], [
+        ];
+
+        // Jika yang login BUKAN pemilik (Admin/Dokter), wajib pilih owner_id
+        if ($user->role !== 'pemilik') {
+            $rules['owner_id'] = ['required', 'integer', 'exists:owners,id'];
+        }
+
+        $validated = $request->validate($rules, [
             'name.required' => 'Nama hewan wajib diisi.',
             'species.required' => 'Jenis hewan wajib dipilih.',
-            'species.in' => 'Jenis hewan tidak valid.',
+            'gender.required' => 'Jenis kelamin wajib dipilih.',
             'age.required' => 'Umur hewan wajib diisi.',
-            'age.min' => 'Umur hewan harus lebih dari 0.',
+            'age.min' => 'Umur hewan minimal 1 bulan.',
             'weight.required' => 'Berat hewan wajib diisi.',
             'weight.gt' => 'Berat hewan harus lebih dari 0 kg.',
             'owner_id.required' => 'Pemilik wajib dipilih.',
-            'owner_id.exists' => 'Pemilik yang dipilih tidak ditemukan.',
         ]);
+
+        // JIKA YANG LOGIN ADALAH PEMILIK, OTOMATIS IKAT KE DIRINYA SENDIRI
+        if ($user->role === 'pemilik') {
+            $owner = Owner::firstOrCreate(
+                ['email' => $user->email],
+                [
+                    'name' => $user->name,
+                    'phone' => '-',
+                    'address' => '-',
+                ]
+            );
+            $validated['owner_id'] = $owner->id;
+        }
 
         $patient = Patient::create($validated);
 
@@ -80,30 +98,28 @@ class PatientController extends Controller
 
     public function update(Request $request, Patient $patient)
     {
-        $validated = $request->validate([
+        $user = $request->user();
+
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'species' => [
-                'required',
-                'string',
-                'max:100',
-                Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Lainnya']),
-            ],
+            'species' => ['required', 'string', Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Lainnya'])],
+            'gender' => ['required', 'string', Rule::in(['Jantan', 'Betina'])],
             'breed' => ['nullable', 'string', 'max:255'],
             'age' => ['required', 'integer', 'min:1'],
-            'weight' => ['required', 'numeric', 'gt:0', 'decimal:0,2'],
-            'owner_id' => ['required', 'integer', 'exists:owners,id'],
+            'weight' => ['required', 'numeric', 'gt:0'],
             'notes' => ['nullable', 'string'],
-        ], [
-            'name.required' => 'Nama hewan wajib diisi.',
-            'species.required' => 'Jenis hewan wajib dipilih.',
-            'species.in' => 'Jenis hewan tidak valid.',
-            'age.required' => 'Umur hewan wajib diisi.',
-            'age.min' => 'Umur hewan harus lebih dari 0.',
-            'weight.required' => 'Berat hewan wajib diisi.',
-            'weight.gt' => 'Berat hewan harus lebih dari 0 kg.',
-            'owner_id.required' => 'Pemilik wajib dipilih.',
-            'owner_id.exists' => 'Pemilik yang dipilih tidak ditemukan.',
-        ]);
+        ];
+
+        if ($user->role !== 'pemilik') {
+            $rules['owner_id'] = ['required', 'integer', 'exists:owners,id'];
+        }
+
+        $validated = $request->validate($rules);
+
+        // JIKA PEMILIK, JANGAN BIARKAN MEREKA MEMINDAHKAN HEWAN KE PEMILIK LAIN
+        if ($user->role === 'pemilik') {
+            unset($validated['owner_id']);
+        }
 
         $patient->update($validated);
 

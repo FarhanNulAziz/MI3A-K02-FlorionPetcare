@@ -24,10 +24,10 @@ export default function TabLayout() {
     );
   }
 
-  // Fungsi helper untuk mengecek akses
-  const canAccessPemilik = role === 'admin' || role === 'paramedik' || role === 'manajer';
-  const canAccessPasien = role === 'admin' || role === 'paramedik' || role === 'dokter' || role === 'manajer' || role === 'pemilik';
-  const canAccessLayanan = role === 'admin' || role === 'paramedik' || role === 'manajer';
+  // LOGIKA HAK AKSES ROLE
+  const canAccessPemilik = role === 'admin' || role === 'manajer' || role === 'paramedik';
+  const canAccessPasien = role === 'admin' || role === 'manajer' || role === 'dokter' || role === 'paramedik' || role === 'pemilik';
+  const canAccessLayanan = role === 'admin' || role === 'manajer';
 
   return (
     <Tabs
@@ -41,7 +41,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Beranda',
+          title: 'Beranda', // Ini akan menjadi "Beranda | Florion Petcare" di tab browser
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text>,
         }}
       />
@@ -49,7 +49,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="pemilik"
         options={{
-          title: 'Pemilik',
+          title: 'Pemilik', // Mengubah tab browser menjadi "Pemilik | Florion Petcare"
           href: canAccessPemilik ? '/pemilik' : undefined,
           tabBarButton: canAccessPemilik ? undefined : () => null,
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>👤</Text>,
@@ -59,7 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="pasien"
         options={{
-          title: role === 'pemilik' ? 'Hewan Saya' : 'Pasien',
+          title: role === 'pemilik' ? 'Hewan Saya' : 'Pasien', // Dinamis untuk Pemilik
           href: canAccessPasien ? '/pasien' : undefined,
           tabBarButton: canAccessPasien ? undefined : () => null,
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🐶</Text>,

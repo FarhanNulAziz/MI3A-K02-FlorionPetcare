@@ -96,10 +96,7 @@ class OwnerController extends Controller
         $owner = Owner::findOrFail($id);
 
         try {
-            // Hapus akun login-nya terlebih dahulu
             User::where('email', $owner->email)->delete();
-
-            // Hapus data pemilik
             $owner->delete();
 
             return response()->json([
@@ -107,15 +104,12 @@ class OwnerController extends Controller
                 'message' => 'Data pemilik dan akun login berhasil dihapus.',
             ]);
         } catch (QueryException $e) {
-            // Jika error code 23000, berarti melanggar Foreign Key (masih punya hewan)
             if ($e->getCode() == "23000") {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Gagal menghapus! Pemilik ini masih memiliki data hewan terdaftar. Hapus data hewannya terlebih dahulu di menu Pasien.',
+                    'message' => 'Gagal menghapus! Pemilik ini masih memiliki data hewan terdaftar.',
                 ], 400);
             }
-
-            // Tampilkan error sistem jika ada masalah lain
             return response()->json([
                 'success' => false,
                 'message' => 'Error Sistem: ' . $e->getMessage(),

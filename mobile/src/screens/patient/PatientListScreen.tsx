@@ -1,62 +1,79 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
-    StyleSheet, ActivityIndicator, Alert, SafeAreaView
+    StyleSheet, ActivityIndicator, SafeAreaView
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import api from '../../config/api';
 import { getUser } from '../../utils/storage';
+import CustomAlert from '../../components/custom-alert';
 
 export default function PatientListScreen() {
     const router = useRouter();
     const [patients, setPatients] = useState([]);
-    const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
+    const [userRole, setUserRole] = useState<string | null>(null);
+
+    // STATE UNTUK DEBOUNCE
+    const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info' as any, onConfirm: undefined as any, loading: false });
+
+    // EFEK DEBOUNCE 300ms
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+
+        return () => clearTimeout(handler);
+    }, [search]);
 
     const loadPatients = async (keyword = '') => {
         setLoading(true);
         try {
+            const currentUser = await getUser();
+            setUserRole(currentUser?.role);
+
+            // Backend sudah memfilter otomatis berdasarkan role
             const res = await api.get(`/patients${keyword ? `?search=${keyword}` : ''}`);
-            if (res.data.success) {
-                let dataPasien = res.data.data || [];
-
-                // --- FILTER BERDASARKAN ROLE ---
-                const currentUser = await getUser();
-                if (currentUser?.role === 'pemilik') {
-                    dataPasien = dataPasien.filter((p: any) =>
-                        p.owner?.email === currentUser.email || p.owner?.name === currentUser.name
-                    );
-                }
-                // -------------------------------
-
-                setPatients(dataPasien);
+            if (res.data.success) setPatients(res.data.data || []);
+        } catch (error: any) {
+            if (error.response?.status !== 403) {
+                setAlert({ visible: true, title: 'Error', message: 'Gagal memuat data pasien', type: 'error', onConfirm: undefined, loading: false });
             }
-        } catch (error) {
-            Alert.alert('Error', 'Gagal memuat data pasien');
         } finally {
             setLoading(false);
         }
     };
 
+    // TRIGGER PENCARIAN SAAT DEBOUNCED SEARCH BERUBAH
     useFocusEffect(
         useCallback(() => {
-            loadPatients(search);
-        }, [search])
+            loadPatients(debouncedSearch);
+        }, [debouncedSearch])
     );
 
-    const handleDelete = (id: number, name: string) => {
-        Alert.alert('Konfirmasi', `Hapus data pasien "${name}"?`, [
-            { text: 'Batal', style: 'cancel' },
-            { text: 'Hapus', style: 'destructive', onPress: async () => {
-                try {
-                    await api.delete(`/patients/${id}`);
-                    Alert.alert('Sukses', 'Data pasien dihapus');
-                    loadPatients(search);
-                } catch (e) {
-                    Alert.alert('Gagal', 'Tidak dapat menghapus data');
-                }
-            }}
-        ]);
+    const handleDeleteClick = (id: number, name: string) => {
+        setAlert({
+            visible: true, title: 'Konfirmasi Hapus', message: `Apakah Anda yakin ingin menghapus data pasien "${name}"?`,
+            type: 'confirm', loading: false,
+            onConfirm: () => eksekusiHapus(id)
+        });
+    };
+
+    const eksekusiHapus = async (id: number) => {
+        setAlert(prev => ({ ...prev, loading: true }));
+        try {
+            const res = await api.delete(`/patients/${id}`);
+            if (res.data.success) {
+                setAlert({ visible: true, title: 'Sukses', message: 'Data pasien berhasil dihapus.', type: 'success', onConfirm: undefined, loading: false });
+                loadPatients(debouncedSearch);
+            }
+        } catch (e: any) {
+            const msg = e.response?.data?.message || 'Tidak dapat menghapus data.';
+            setAlert({ visible: true, title: 'Gagal Menghapus', message: msg, type: 'error', onConfirm: undefined, loading: false });
+        }
     };
 
     const getSpeciesEmoji = (species: string) => {
@@ -70,27 +87,34 @@ export default function PatientListScreen() {
 
     const renderItem = ({ item }: { item: any }) => (
         <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{getSpeciesEmoji(item.species)}</Text>
+            <View style={styles.cardClickArea}>
+                <View style={styles.cardHeader}>
+                    <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>{getSpeciesEmoji(item.species)}</Text>
+                    </View>
+                    <View style={styles.cardInfo}>
+                        <Text style={styles.title}>{item.name}</Text>
+                        <Text style={styles.subtitle}>
+                            {item.species} • {item.gender} • {item.age} bln • {item.weight} kg
+                        </Text>
+                    </View>
                 </View>
-                <View style={styles.cardInfo}>
-                    <Text style={styles.title}>{item.name}</Text>
-                    <Text style={styles.subtitle}>
-                        {item.species} {item.gender ? `• ${item.gender}` : ''}
-                    </Text>
+                <View style={styles.cardBody}>
+                    <Text style={styles.ownerText}>Pemilik: {item.owner?.name || '-'}</Text>
                 </View>
             </View>
-            <View style={styles.cardBody}>
-                <Text style={styles.ownerText}>Pemilik: {item.owner?.name || '-'}</Text>
-                <View style={styles.actions}>
-                    <TouchableOpacity onPress={() => router.push({ pathname: '/patient-form', params: { patient: JSON.stringify(item) } })}>
-                        <Text style={styles.actionEdit}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(item.id, item.name)}>
+
+            <View style={styles.actionsWrapper}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/patient-form', params: { patient: JSON.stringify(item) } })}>
+                    <Text style={styles.actionEdit}>Edit</Text>
+                </TouchableOpacity>
+
+                {/* Sembunyikan tombol Hapus untuk Pemilik */}
+                {userRole !== 'pemilik' && (
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => handleDeleteClick(item.id, item.name)}>
                         <Text style={styles.actionDelete}>Hapus</Text>
                     </TouchableOpacity>
-                </View>
+                )}
             </View>
         </View>
     );
@@ -98,17 +122,24 @@ export default function PatientListScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Data Pasien</Text>
+                <Text style={styles.headerTitle}>{userRole === 'pemilik' ? 'Hewan Saya' : 'Data Pasien'}</Text>
             </View>
 
+            {/* SEARCH BAR DENGAN TOMBOL CLEAR */}
             <View style={styles.searchWrap}>
                 <Text style={styles.searchIcon}>🔍</Text>
                 <TextInput
                     style={styles.searchInput}
                     placeholder="Cari nama hewan..."
+                    placeholderTextColor="#9CA3AF"
                     value={search}
                     onChangeText={setSearch}
                 />
+                {search.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
+                        <Text style={styles.clearIcon}>✕</Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             {loading ? (
@@ -116,16 +147,25 @@ export default function PatientListScreen() {
             ) : (
                 <FlatList
                     data={patients}
-                    keyExtractor={(item) => item.id.toString()}
+                    keyExtractor={(item: any) => item.id.toString()}
                     renderItem={renderItem}
                     contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
-                    ListEmptyComponent={<Text style={styles.emptyText}>Belum ada data pasien</Text>}
+                    ListEmptyComponent={
+                        <View style={styles.emptyWrap}>
+                            <Text style={styles.emptyText}>Data tidak ditemukan</Text>
+                        </View>
+                    }
                 />
             )}
 
             <TouchableOpacity style={styles.fab} onPress={() => router.push('/patient-form')}>
                 <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
+
+            <CustomAlert
+                visible={alert.visible} title={alert.title} message={alert.message} type={alert.type} loading={alert.loading}
+                onClose={() => setAlert({ ...alert, visible: false })} onConfirm={alert.onConfirm}
+            />
         </SafeAreaView>
     );
 }
@@ -137,7 +177,10 @@ const styles = StyleSheet.create({
     searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 16, marginHorizontal: 24, marginBottom: 16 },
     searchIcon: { fontSize: 14, marginRight: 12, color: '#9CA3AF' },
     searchInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: '#111827' },
-    card: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+    clearBtn: { padding: 8 },
+    clearIcon: { fontSize: 14, color: '#9CA3AF', fontWeight: 'bold' },
+    card: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, overflow: 'hidden' },
+    cardClickArea: { padding: 16 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingBottom: 12, marginBottom: 12 },
     avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#E6F4F1', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
     avatarText: { fontSize: 24 },
@@ -146,10 +189,12 @@ const styles = StyleSheet.create({
     subtitle: { fontSize: 12, fontWeight: '500', color: '#6B7280', marginTop: 2 },
     cardBody: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     ownerText: { fontSize: 12, color: '#0D9488', fontWeight: '600', flex: 1 },
-    actions: { flexDirection: 'row', gap: 16 },
-    actionEdit: { fontSize: 13, fontWeight: 'bold', color: '#0D9488' },
-    actionDelete: { fontSize: 13, fontWeight: 'bold', color: '#EF4444' },
-    emptyText: { textAlign: 'center', color: '#9CA3AF', marginTop: 40 },
+    actionsWrapper: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#F3F4F6', backgroundColor: '#FAFAFA', zIndex: 10 },
+    actionBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+    actionEdit: { fontSize: 14, fontWeight: 'bold', color: '#0D9488' },
+    actionDelete: { fontSize: 14, fontWeight: 'bold', color: '#EF4444' },
+    emptyWrap: { alignItems: 'center', marginTop: 40 },
+    emptyText: { color: '#9CA3AF', fontSize: 14, fontStyle: 'italic' },
     fab: { position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, backgroundColor: '#0D9488', borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#0D9488', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 5 },
     fabText: { color: '#FFFFFF', fontSize: 30, fontWeight: '300', marginTop: -2 },
 });
