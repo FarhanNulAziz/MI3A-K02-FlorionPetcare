@@ -15,7 +15,6 @@ class PatientController extends Controller
         $search = $request->query('search');
         $query = Patient::with('owner');
 
-        // JIKA YANG LOGIN ADALAH PEMILIK, HANYA TAMPILKAN HEWANNYA SENDIRI
         if ($user->role === 'pemilik') {
             $owner = Owner::where('email', $user->email)->first();
             if ($owner) {
@@ -25,7 +24,6 @@ class PatientController extends Controller
             }
         }
 
-        // Fitur Pencarian
         if ($search) {
             $query->where('name', 'like', '%' . trim($search) . '%');
         }
@@ -44,13 +42,14 @@ class PatientController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'species' => ['required', 'string', Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Lainnya'])],
             'gender' => ['required', 'string', Rule::in(['Jantan', 'Betina'])],
-            'breed' => ['nullable', 'string', 'max:255'],
             'age' => ['required', 'integer', 'min:1'],
             'weight' => ['required', 'numeric', 'gt:0'],
+            'temperature' => ['nullable', 'numeric'],
+            'special_marks' => ['nullable', 'string'],
+            'breed' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
         ];
 
-        // Jika yang login BUKAN pemilik (Admin/Dokter), wajib pilih owner_id
         if ($user->role !== 'pemilik') {
             $rules['owner_id'] = ['required', 'integer', 'exists:owners,id'];
         }
@@ -66,7 +65,6 @@ class PatientController extends Controller
             'owner_id.required' => 'Pemilik wajib dipilih.',
         ]);
 
-        // JIKA YANG LOGIN ADALAH PEMILIK, OTOMATIS IKAT KE DIRINYA SENDIRI
         if ($user->role === 'pemilik') {
             $owner = Owner::firstOrCreate(
                 ['email' => $user->email],
@@ -104,9 +102,11 @@ class PatientController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'species' => ['required', 'string', Rule::in(['Anjing', 'Kucing', 'Kelinci', 'Lainnya'])],
             'gender' => ['required', 'string', Rule::in(['Jantan', 'Betina'])],
-            'breed' => ['nullable', 'string', 'max:255'],
             'age' => ['required', 'integer', 'min:1'],
             'weight' => ['required', 'numeric', 'gt:0'],
+            'temperature' => ['nullable', 'numeric'],
+            'special_marks' => ['nullable', 'string'],
+            'breed' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
         ];
 
@@ -116,7 +116,6 @@ class PatientController extends Controller
 
         $validated = $request->validate($rules);
 
-        // JIKA PEMILIK, JANGAN BIARKAN MEREKA MEMINDAHKAN HEWAN KE PEMILIK LAIN
         if ($user->role === 'pemilik') {
             unset($validated['owner_id']);
         }

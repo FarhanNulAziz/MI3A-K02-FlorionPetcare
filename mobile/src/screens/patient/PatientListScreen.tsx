@@ -14,18 +14,13 @@ export default function PatientListScreen() {
     const [loading, setLoading] = useState(false);
     const [userRole, setUserRole] = useState<string | null>(null);
 
-    // STATE UNTUK DEBOUNCE
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
     const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info' as any, onConfirm: undefined as any, loading: false });
 
-    // EFEK DEBOUNCE 300ms
     useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedSearch(search);
-        }, 300);
-
+        const handler = setTimeout(() => { setDebouncedSearch(search); }, 300);
         return () => clearTimeout(handler);
     }, [search]);
 
@@ -35,7 +30,6 @@ export default function PatientListScreen() {
             const currentUser = await getUser();
             setUserRole(currentUser?.role);
 
-            // Backend sudah memfilter otomatis berdasarkan role
             const res = await api.get(`/patients${keyword ? `?search=${keyword}` : ''}`);
             if (res.data.success) setPatients(res.data.data || []);
         } catch (error: any) {
@@ -47,18 +41,14 @@ export default function PatientListScreen() {
         }
     };
 
-    // TRIGGER PENCARIAN SAAT DEBOUNCED SEARCH BERUBAH
     useFocusEffect(
-        useCallback(() => {
-            loadPatients(debouncedSearch);
-        }, [debouncedSearch])
+        useCallback(() => { loadPatients(debouncedSearch); }, [debouncedSearch])
     );
 
     const handleDeleteClick = (id: number, name: string) => {
         setAlert({
             visible: true, title: 'Konfirmasi Hapus', message: `Apakah Anda yakin ingin menghapus data pasien "${name}"?`,
-            type: 'confirm', loading: false,
-            onConfirm: () => eksekusiHapus(id)
+            type: 'confirm', loading: false, onConfirm: () => eksekusiHapus(id)
         });
     };
 
@@ -97,6 +87,12 @@ export default function PatientListScreen() {
                         <Text style={styles.subtitle}>
                             {item.species} • {item.gender} • {item.age} bln • {item.weight} kg
                         </Text>
+                        {(item.temperature || item.special_marks) && (
+                            <Text style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>
+                                {item.temperature ? `Suhu: ${item.temperature}°C ` : ''}
+                                {item.special_marks ? `| ${item.special_marks}` : ''}
+                            </Text>
+                        )}
                     </View>
                 </View>
                 <View style={styles.cardBody}>
@@ -104,18 +100,18 @@ export default function PatientListScreen() {
                 </View>
             </View>
 
-            <View style={styles.actionsWrapper}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/patient-form', params: { patient: JSON.stringify(item) } })}>
-                    <Text style={styles.actionEdit}>Edit</Text>
-                </TouchableOpacity>
+            {/* SEMBUNYIKAN EDIT & HAPUS JIKA PEMILIK */}
+            {userRole !== 'pemilik' && (
+                <View style={styles.actionsWrapper}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/patient-form', params: { patient: JSON.stringify(item) } })}>
+                        <Text style={styles.actionEdit}>Edit</Text>
+                    </TouchableOpacity>
 
-                {/* Sembunyikan tombol Hapus untuk Pemilik */}
-                {userRole !== 'pemilik' && (
                     <TouchableOpacity style={styles.actionBtn} onPress={() => handleDeleteClick(item.id, item.name)}>
                         <Text style={styles.actionDelete}>Hapus</Text>
                     </TouchableOpacity>
-                )}
-            </View>
+                </View>
+            )}
         </View>
     );
 
@@ -125,20 +121,11 @@ export default function PatientListScreen() {
                 <Text style={styles.headerTitle}>{userRole === 'pemilik' ? 'Hewan Saya' : 'Data Pasien'}</Text>
             </View>
 
-            {/* SEARCH BAR DENGAN TOMBOL CLEAR */}
             <View style={styles.searchWrap}>
                 <Text style={styles.searchIcon}>🔍</Text>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Cari nama hewan..."
-                    placeholderTextColor="#9CA3AF"
-                    value={search}
-                    onChangeText={setSearch}
-                />
+                <TextInput style={styles.searchInput} placeholder="Cari nama hewan..." placeholderTextColor="#9CA3AF" value={search} onChangeText={setSearch} />
                 {search.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
-                        <Text style={styles.clearIcon}>✕</Text>
-                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}><Text style={styles.clearIcon}>✕</Text></TouchableOpacity>
                 )}
             </View>
 
@@ -150,22 +137,18 @@ export default function PatientListScreen() {
                     keyExtractor={(item: any) => item.id.toString()}
                     renderItem={renderItem}
                     contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100 }}
-                    ListEmptyComponent={
-                        <View style={styles.emptyWrap}>
-                            <Text style={styles.emptyText}>Data tidak ditemukan</Text>
-                        </View>
-                    }
+                    ListEmptyComponent={<View style={styles.emptyWrap}><Text style={styles.emptyText}>Data tidak ditemukan</Text></View>}
                 />
             )}
 
-            <TouchableOpacity style={styles.fab} onPress={() => router.push('/patient-form')}>
-                <Text style={styles.fabText}>+</Text>
-            </TouchableOpacity>
+            {/* SEMBUNYIKAN TOMBOL TAMBAH (+) JIKA PEMILIK */}
+            {userRole !== 'pemilik' && (
+                <TouchableOpacity style={styles.fab} onPress={() => router.push('/patient-form')}>
+                    <Text style={styles.fabText}>+</Text>
+                </TouchableOpacity>
+            )}
 
-            <CustomAlert
-                visible={alert.visible} title={alert.title} message={alert.message} type={alert.type} loading={alert.loading}
-                onClose={() => setAlert({ ...alert, visible: false })} onConfirm={alert.onConfirm}
-            />
+            <CustomAlert visible={alert.visible} title={alert.title} message={alert.message} type={alert.type} loading={alert.loading} onClose={() => setAlert({ ...alert, visible: false })} onConfirm={alert.onConfirm} />
         </SafeAreaView>
     );
 }

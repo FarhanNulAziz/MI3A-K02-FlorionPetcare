@@ -3,31 +3,23 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Patient extends Model
 {
-    protected $table = 'patients';
-
     protected $fillable = [
+        'owner_id',
         'name',
         'species',
         'breed',
+        'gender',
         'age',
         'weight',
-        'owner_id',
+        'temperature',
+        'special_marks',
         'notes',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'age' => 'integer',
-            'weight' => 'decimal:2',
-        ];
-    }
-
-    public function owner(): BelongsTo
+    public function owner()
     {
         return $this->belongsTo(Owner::class);
     }
