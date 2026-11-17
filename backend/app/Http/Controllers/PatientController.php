@@ -129,6 +129,50 @@ class PatientController extends Controller
         ]);
     }
 
+
+    /**
+     * Menampilkan riwayat medis pasien.
+     *
+     * Mendukung filter berdasarkan tanggal pencatatan.
+     */
+    public function medicalRecords(Request $request, Patient $patient)
+    {
+        // Validasi filter tanggal jika dikirimkan.
+        $validated = $request->validate([
+            'date' => ['sometimes', 'date_format:Y-m-d'],
+        ]);
+
+        // Ambil riwayat medis berdasarkan pasien.
+        $query = $patient->medicalRecords()
+            ->with('user:id,name,role');
+
+        // Filter berdasarkan tanggal pencatatan.
+        if (!empty($validated['date'])) {
+            $query->whereDate('created_at', $validated['date']);
+        }
+
+        // Urutkan secara kronologis (terlama ke terbaru).
+        $medicalRecords = $query
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        // Jika belum ada riwayat medis.
+        if ($medicalRecords->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Belum ada riwayat',
+                'data' => [],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Riwayat medis berhasil ditemukan.',
+            'data' => $medicalRecords,
+        ]);
+    }
+
+
     public function destroy(Patient $patient)
     {
         $patient->delete();
