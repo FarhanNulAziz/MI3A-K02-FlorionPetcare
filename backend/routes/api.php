@@ -29,4 +29,12 @@ Route::middleware('auth:api')->group(function () {
     Route::middleware('role:admin,manajer')->group(function () {
         Route::apiResource('services', ServiceController::class);
     });
+
+    // Riwayat medis hanya untuk Dokter dan Paramedik
+    Route::middleware('role:dokter,paramedik')->group(function () {
+        Route::get(
+            '/patients/{patient}/medical-records',
+            [PatientController::class, 'medicalRecords']
+        );
+    });
 });

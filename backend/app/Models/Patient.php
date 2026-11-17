@@ -8,15 +8,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Patient extends Model
 {
-    protected $table = 'patients';
-
     protected $fillable = [
+        'owner_id',
         'name',
         'species',
         'breed',
+        'gender',
         'age',
         'weight',
-        'owner_id',
+        'temperature',
+        'special_marks',
         'notes',
     ];
 
