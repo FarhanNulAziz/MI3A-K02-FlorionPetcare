@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable implements JWTSubject
 {
@@ -55,7 +56,7 @@ class User extends Authenticatable implements JWTSubject
      */
     public function menus(): array
     {
-        $menu = fn (string $key, string $label, bool $available = true) => [
+        $menu = fn(string $key, string $label, bool $available = true) => [
             'key' => $key,
             'label' => $label,
             'available' => $available,
@@ -95,5 +96,13 @@ class User extends Authenticatable implements JWTSubject
         return [
             'role' => $this->role, // role ikut tersimpan di dalam token JWT
         ];
+    }
+
+    /**
+     * Relasi ke seluruh rekam medis yang dicatat oleh user.
+     */
+    public function medicalRecords(): HasMany
+    {
+        return $this->hasMany(MedicalRecord::class);
     }
 }
