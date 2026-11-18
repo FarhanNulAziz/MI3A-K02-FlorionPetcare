@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OwnerController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\HospitalizationController;
 
 // Public Routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -36,5 +37,14 @@ Route::middleware('auth:api')->group(function () {
             '/patients/{patient}/medical-records',
             [PatientController::class, 'medicalRecords']
         );
+    });
+
+    // Kelola Rawat Inap & Daily Monitoring (Hanya staf klinik, Pemilik tidak bisa akses)
+    Route::middleware('role:admin,manajer,dokter,paramedik')->prefix('hospitalizations')->group(function () {
+        Route::get('/', [HospitalizationController::class, 'index']);
+        Route::post('/', [HospitalizationController::class, 'store']);
+        Route::get('/{id}', [HospitalizationController::class, 'show']);
+        Route::post('/{id}/monitorings', [HospitalizationController::class, 'storeMonitoring']);
+        Route::patch('/{id}/discharge', [HospitalizationController::class, 'discharge']);
     });
 });
