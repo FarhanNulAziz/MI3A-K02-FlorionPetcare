@@ -44,6 +44,7 @@ class PatientTest extends TestCase
         return [
             'name' => 'Milo',
             'species' => 'Kucing',
+            'gender' => 'Betina',
             'breed' => 'Persia',
             'age' => 2,
             'weight' => 4.50,
@@ -166,7 +167,7 @@ class PatientTest extends TestCase
             'Authorization' => "Bearer $token",
         ])
             ->assertStatus(422)
-            ->assertJsonPath('errors.age.0', 'Umur hewan harus lebih dari 0.');
+            ->assertJsonPath('errors.age.0', 'Umur hewan minimal 1 bulan.');
     }
 
     public function test_pasien_menolak_berat_nol(): void
