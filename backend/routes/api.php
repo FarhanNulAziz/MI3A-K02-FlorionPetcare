@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OwnerController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\MedicalRecordController;
 
 // Public Routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -35,6 +36,18 @@ Route::middleware('auth:api')->group(function () {
         Route::get(
             '/patients/{patient}/medical-records',
             [PatientController::class, 'medicalRecords']
+        );
+
+    // Menyimpan catatan pemeriksaan SOAP
+        Route::post(
+            '/patients/{patient}/medical-records',
+            [MedicalRecordController::class, 'store']
+        );
+
+    // Memperbarui catatan pemeriksaan SOAP
+        Route::put(
+            '/patients/{patient}/medical-records/{medicalRecord}',
+            [MedicalRecordController::class, 'update']
         );
     });
 });
