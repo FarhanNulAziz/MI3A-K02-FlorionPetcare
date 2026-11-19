@@ -1,47 +1,21 @@
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+const GATEWAY_URL = 'http://192.168.1.11:8080/api';
 
-// GANTI ANGKA DI BAWAH INI DENGAN IP YANG MUNCUL DI BROWSER HP TADI
-const LAN_IP = '192.168.65.242';
+export const API_BASE_URL = GATEWAY_URL;
 
-const getBaseUrl = () => {
-    if (Platform.OS === 'web') {
-        return 'http://127.0.0.1:8000/api';
-    }
-    // PERHATIKAN: Ada tanda backtick (`) dan tambahan /api di akhir
-    return `http://${LAN_IP}:8000/api`;
+export const ENDPOINTS = {
+  // Core Laravel (Sprint 1)
+  AUTH: `${GATEWAY_URL}/auth`,
+  OWNERS: `${GATEWAY_URL}/owners`,
+  PATIENTS: `${GATEWAY_URL}/patients`,
+  SERVICES: `${GATEWAY_URL}/services`,
+
+  // Mikroservis Sprint 2
+  EMR_SOAP: `${GATEWAY_URL}/emr/medical-records`,
+  EMR_TIMELINE: (patientId) => `${GATEWAY_URL}/emr/patients/${patientId}/medical-records`,
+  MASTER_MEDICINES: `${GATEWAY_URL}/pharmacy/master/medicines`,
+  MASTER_TREATMENTS: `${GATEWAY_URL}/pharmacy/master/treatments`,
+  PRESCRIPTIONS: `${GATEWAY_URL}/pharmacy/prescriptions`,
+  HOSPITALIZATIONS: `${GATEWAY_URL}/inpatient/hospitalizations`,
+  HOSPITALIZATIONS_ACTIVE: `${GATEWAY_URL}/inpatient/hospitalizations/active`,
+  DAILY_MONITORING: (hospId) => `${GATEWAY_URL}/inpatient/hospitalizations/${hospId}/monitorings`,
 };
-
-const api = axios.create({
-    baseURL: getBaseUrl(),
-    headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-    },
-    timeout: 15000,
-});
-
-api.interceptors.request.use(
-    async (config) => {
-        const token = await AsyncStorage.getItem('access_token');
-        if (token && !config.url.includes('/login')) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
-
-api.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const url = error.config?.url || '';
-        if (error.response?.status === 401 && !url.includes('/login')) {
-            await AsyncStorage.removeItem('access_token');
-        }
-        return Promise.reject(error);
-    }
-);
-
-export default api;
