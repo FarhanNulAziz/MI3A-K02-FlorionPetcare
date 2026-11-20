@@ -1,3 +1,6 @@
+import axios from 'axios';
+import { getToken } from '../utils/storage';
+
 const GATEWAY_URL = 'http://192.168.1.11:8080/api';
 
 export const API_BASE_URL = GATEWAY_URL;
@@ -19,3 +22,21 @@ export const ENDPOINTS = {
   HOSPITALIZATIONS_ACTIVE: `${GATEWAY_URL}/inpatient/hospitalizations/active`,
   DAILY_MONITORING: (hospId) => `${GATEWAY_URL}/inpatient/hospitalizations/${hospId}/monitorings`,
 };
+
+const api = axios.create({
+  baseURL: GATEWAY_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
+
+api.interceptors.request.use(async (config) => {
+  const token = await getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export default api;

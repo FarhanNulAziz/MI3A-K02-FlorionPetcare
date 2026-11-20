@@ -1,45 +1,38 @@
-import { ENDPOINTS } from '../config/api';
-import { getToken } from '../utils/storage';
+import api from '../config/api';
 
-const authHeaders = async () => {
-  const token = await getToken();
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
+// 1. Ambil daftar pasien rawat inap (bisa filter status: 'inpatient' atau 'discharged')
+export const getHospitalizations = async (status = '') => {
+  const params = status ? { status } : {};
+  const response = await api.get('/hospitalizations', { params });
+  return response.data;
 };
 
-// US-2004: Daftar Pasien Rawat Inap Aktif
-export const getActiveHospitalizations = async () => {
-  const res = await fetch(ENDPOINTS.HOSPITALIZATIONS_ACTIVE, { headers: await authHeaders() });
-  return res.json();
+// 2. Ambil detail satu data rawat inap beserta riwayat daily monitoring-nya
+export const getHospitalizationDetail = async (id) => {
+  const response = await api.get(`/hospitalizations/${id}`);
+  return response.data;
 };
 
-// US-2004: Daftarkan Pasien Rawat Inap (Paket 35k / 50k + Kandang)
+// 3. Daftarkan pasien masuk rawat inap baru
 export const admitInpatient = async (payload) => {
-  const res = await fetch(ENDPOINTS.HOSPITALIZATIONS, {
-    method: 'POST',
-    headers: await authHeaders(),
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || 'Gagal mendaftarkan rawat inap');
-  return data;
+  const response = await api.post('/hospitalizations', payload);
+  return response.data;
 };
 
-// US-2004: Tambah & Lihat Daily Monitoring (Nafsu makan, PIP, PUP, Muntah, Diare)
-export const addDailyMonitoring = async (hospId, payload) => {
-  const res = await fetch(ENDPOINTS.DAILY_MONITORING(hospId), {
-    method: 'POST',
-    headers: await authHeaders(),
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || 'Gagal menyimpan daily monitoring');
-  return data;
+// 4. Tambahkan catatan daily monitoring harian
+export const addDailyMonitoring = async (hospitalizationId, payload) => {
+  const response = await api.post(`/hospitalizations/${hospitalizationId}/monitorings`, payload);
+  return response.data;
 };
 
-export const getDailyMonitorings = async (hospId) => {
-  const res = await fetch(ENDPOINTS.DAILY_MONITORING(hospId), { headers: await authHeaders() });
-  return res.json();
+// 5. Pulangkan pasien (discharge) & hitung total tagihan otomatis
+export const dischargeInpatient = async (hospitalizationId, payload) => {
+  const response = await api.patch(`/hospitalizations/${hospitalizationId}/discharge`, payload);
+  return response.data;
+};
+
+// 6. Ambil daftar pasien untuk dropdown pendaftaran rawat inap
+export const getPatientsList = async () => {
+  const response = await api.get('/patients');
+  return response.data;
 };
