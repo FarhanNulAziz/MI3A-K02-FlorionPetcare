@@ -1,15 +1,17 @@
 import os
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException
+import httpx
+import pymysql
+from urllib.parse import urlparse
+from fastapi import FastAPI, Depends, HTTPException, Header, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 
 DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:root@db:3306/florion_inpatient")
+CORE_API_URL = os.getenv("CORE_API_URL", "http://host.docker.internal:8000/api")
 
-import pymysql
-from urllib.parse import urlparse
 _u = urlparse(DATABASE_URL.replace("mysql+pymysql://", "mysql://"))
 _conn = pymysql.connect(host=_u.hostname, port=_u.port or 3306, user=_u.username, password=_u.password)
 with _conn.cursor() as _cur:
@@ -25,26 +27,27 @@ class Hospitalization(Base):
     __tablename__ = "hospitalizations"
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, index=True, nullable=False)
-    package_type = Column(String(50), nullable=False)
-    daily_rate = Column(Float, nullable=False)
-    cage_number = Column(String(20), nullable=False)
-    status = Column(String(20), default="DIRAWAT")
-    admitted_at = Column(DateTime, default=datetime.utcnow)
-    discharged_at = Column(DateTime, nullable=True)
-    monitorings = relationship("DailyMonitoring", back_populates="hospitalization")
+    package_price_per_day = Column(Integer, nullable=False)
+    cage_number = Column(String(50), nullable=False)
+    admission_date = Column(String(20), nullable=False)
+    discharge_date = Column(String(20), nullable=True)
+    status = Column(String(20), default="inpatient")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    daily_monitorings = relationship("DailyMonitoring", back_populates="hospitalization", order_by="DailyMonitoring.id.desc()")
 
 class DailyMonitoring(Base):
     __tablename__ = "daily_monitorings"
     id = Column(Integer, primary_key=True, index=True)
     hospitalization_id = Column(Integer, ForeignKey("hospitalizations.id"), nullable=False)
-    appetite = Column(String(50), nullable=False)
-    pip_status = Column(String(50), nullable=False)
-    pup_status = Column(String(50), nullable=False)
+    monitoring_date = Column(String(20), nullable=False)
+    appetite = Column(String(100), nullable=True)
+    pip = Column(String(100), nullable=True)
+    pup = Column(String(100), nullable=True)
     vomiting = Column(Boolean, default=False)
     diarrhea = Column(Boolean, default=False)
     notes = Column(Text, nullable=True)
-    recorded_at = Column(DateTime, default=datetime.utcnow)
-    hospitalization = relationship("Hospitalization", back_populates="monitorings")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    hospitalization = relationship("Hospitalization", back_populates="daily_monitorings")
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Florion Inpatient & Monitoring Service (US-2004)")
@@ -56,49 +59,160 @@ def get_db():
     finally:
         db.close()
 
+async def fetch_patient_info(patient_id: int, authorization: Optional[str] = None):
+    headers = {"Accept": "application/json"}
+    if authorization:
+        headers["Authorization"] = authorization
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            res = await client.get(f"{CORE_API_URL}/patients/{patient_id}", headers=headers)
+            if res.status_code == 200:
+                body = res.json()
+                return body.get("data", body)
+    except Exception:
+        pass
+    return {"id": patient_id, "name": f"Pasien #{patient_id}", "owner": {"name": "-"}}
+
+def serialize_hosp(h: Hospitalization, patient_data: dict):
+    return {
+        "id": h.id,
+        "patient_id": h.patient_id,
+        "package_price_per_day": h.package_price_per_day,
+        "cage_number": h.cage_number,
+        "admission_date": h.admission_date,
+        "discharge_date": h.discharge_date,
+        "status": h.status,
+        "patient": patient_data,
+        "daily_monitorings": [
+            {
+                "id": m.id,
+                "monitoring_date": m.monitoring_date,
+                "appetite": m.appetite,
+                "pip": m.pip,
+                "pup": m.pup,
+                "vomiting": m.vomiting,
+                "diarrhea": m.diarrhea,
+                "notes": m.notes,
+            }
+            for m in h.daily_monitorings
+        ],
+    }
+
 class HospitalizationCreate(BaseModel):
     patient_id: int
-    package_tier: str = Field(..., pattern="^(35k|50k)$")
-    cage_number: str
+    package_price_per_day: int = Field(..., description="35000 atau 50000")
+    cage_number: str = Field(..., max_length=50)
+    admission_date: str
 
-class DailyMonitoringCreate(BaseModel):
-    appetite: str
-    pip_status: str
-    pup_status: str
+class MonitoringCreate(BaseModel):
+    monitoring_date: str
+    appetite: Optional[str] = None
+    pip: Optional[str] = None
+    pup: Optional[str] = None
     vomiting: bool = False
     diarrhea: bool = False
     notes: Optional[str] = None
 
+class DischargeInput(BaseModel):
+    discharge_date: str
+
+@app.get("/hospitalizations")
+async def list_hospitalizations(
+    status: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Hospitalization).order_by(Hospitalization.id.desc())
+    if status:
+        query = query.filter(Hospitalization.status == status)
+    items = query.all()
+    results = []
+    for h in items:
+        patient_data = await fetch_patient_info(h.patient_id, authorization)
+        results.append(serialize_hosp(h, patient_data))
+    return {"status": "success", "data": results}
+
+@app.get("/hospitalizations/{hosp_id}")
+async def show_hospitalization(
+    hosp_id: int,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    h = db.query(Hospitalization).filter(Hospitalization.id == hosp_id).first()
+    if not h:
+        raise HTTPException(status_code=404, detail="Data rawat inap tidak ditemukan")
+    patient_data = await fetch_patient_info(h.patient_id, authorization)
+    return {"status": "success", "data": serialize_hosp(h, patient_data)}
+
 @app.post("/hospitalizations", status_code=201)
-def admit_patient(payload: HospitalizationCreate, db: Session = Depends(get_db)):
-    occupied = db.query(Hospitalization).filter(Hospitalization.cage_number == payload.cage_number, Hospitalization.status == "DIRAWAT").first()
-    if occupied:
-        raise HTTPException(status_code=400, detail=f"Kandang {payload.cage_number} sedang terisi pasien lain")
+async def store_hospitalization(
+    payload: HospitalizationCreate,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    if payload.package_price_per_day not in [35000, 50000]:
+        raise HTTPException(status_code=422, detail="Tarif paket harus 35000 atau 50000.")
 
-    rate = 35000.0 if payload.package_tier == "35k" else 50000.0
-    pkg_name = "Paket Reguler (35rb/hari)" if payload.package_tier == "35k" else "Paket Intensif (50rb/hari)"
+    if db.query(Hospitalization).filter(Hospitalization.patient_id == payload.patient_id, Hospitalization.status == "inpatient").first():
+        raise HTTPException(status_code=422, detail="Pasien ini masih berstatus sedang dirawat inap.")
 
-    hosp = Hospitalization(patient_id=payload.patient_id, package_type=pkg_name, daily_rate=rate, cage_number=payload.cage_number)
-    db.add(hosp)
+    if db.query(Hospitalization).filter(Hospitalization.cage_number == payload.cage_number, Hospitalization.status == "inpatient").first():
+        raise HTTPException(status_code=422, detail="Nomor kandang tersebut sedang digunakan.")
+
+    h = Hospitalization(
+        patient_id=payload.patient_id,
+        package_price_per_day=payload.package_price_per_day,
+        cage_number=payload.cage_number,
+        admission_date=payload.admission_date,
+        status="inpatient",
+    )
+    db.add(h)
     db.commit()
-    db.refresh(hosp)
-    return {"message": "Pasien berhasil didaftarkan rawat inap", "data": hosp}
-
-@app.get("/hospitalizations/active")
-def get_active_inpatients(db: Session = Depends(get_db)):
-    return db.query(Hospitalization).filter(Hospitalization.status == "DIRAWAT").all()
+    db.refresh(h)
+    patient_data = await fetch_patient_info(h.patient_id, authorization)
+    return {"status": "success", "message": "Pendaftaran rawat inap berhasil.", "data": serialize_hosp(h, patient_data)}
 
 @app.post("/hospitalizations/{hosp_id}/monitorings", status_code=201)
-def add_daily_monitoring(hosp_id: int, payload: DailyMonitoringCreate, db: Session = Depends(get_db)):
-    hosp = db.query(Hospitalization).filter(Hospitalization.id == hosp_id, Hospitalization.status == "DIRAWAT").first()
-    if not hosp:
-        raise HTTPException(status_code=404, detail="Data rawat inap aktif tidak ditemukan")
-    mon = DailyMonitoring(hospitalization_id=hosp_id, **payload.model_dump())
-    db.add(mon)
-    db.commit()
-    db.refresh(mon)
-    return {"message": "Daily monitoring berhasil dicatat", "data": mon}
+def store_monitoring(hosp_id: int, payload: MonitoringCreate, db: Session = Depends(get_db)):
+    h = db.query(Hospitalization).filter(Hospitalization.id == hosp_id).first()
+    if not h:
+        raise HTTPException(status_code=404, detail="Data rawat inap tidak ditemukan.")
+    if h.status != "inpatient":
+        raise HTTPException(status_code=422, detail="Pasien sudah pulang (discharged), tidak bisa menambah monitoring.")
 
-@app.get("/hospitalizations/{hosp_id}/monitorings")
-def list_monitorings(hosp_id: int, db: Session = Depends(get_db)):
-    return db.query(DailyMonitoring).filter(DailyMonitoring.hospitalization_id == hosp_id).order_by(DailyMonitoring.recorded_at.desc()).all()
+    m = DailyMonitoring(hospitalization_id=hosp_id, **payload.model_dump())
+    db.add(m)
+    db.commit()
+    db.refresh(m)
+    return {"status": "success", "message": "Data monitoring harian berhasil disimpan.", "data": m}
+
+@app.patch("/hospitalizations/{hosp_id}/discharge")
+def discharge_hospitalization(hosp_id: int, payload: DischargeInput, db: Session = Depends(get_db)):
+    h = db.query(Hospitalization).filter(Hospitalization.id == hosp_id).first()
+    if not h:
+        raise HTTPException(status_code=404, detail="Data rawat inap tidak ditemukan.")
+    if h.status == "discharged":
+        raise HTTPException(status_code=422, detail="Pasien sudah dipulangkan sebelumnya.")
+
+    d_in = date.fromisoformat(h.admission_date[:10])
+    d_out = date.fromisoformat(payload.discharge_date[:10])
+    if d_out < d_in:
+        raise HTTPException(status_code=422, detail="Tanggal pulang tidak boleh sebelum tanggal masuk.")
+
+    days = max(1, (d_out - d_in).days)
+    total_cost = days * h.package_price_per_day
+
+    h.discharge_date = payload.discharge_date
+    h.status = "discharged"
+    db.commit()
+    db.refresh(h)
+
+    return {
+        "status": "success",
+        "message": "Pasien berhasil dipulangkan.",
+        "data": h,
+        "billing_summary": {
+            "total_days": days,
+            "total_cost": total_cost,
+        },
+    }
