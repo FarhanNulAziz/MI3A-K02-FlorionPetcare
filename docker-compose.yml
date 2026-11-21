@@ -1,0 +1,68 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - florion_ms_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    command: --init-file /data/application/init.sql
+    configs:
+      - source: mysql_init
+        target: /data/application/init.sql
+
+  emr-service:
+    build: ./services/emr-service
+    environment:
+      DATABASE_URL: mysql+pymysql://root:root@db:3306/florion_emr
+      JWT_SECRET: florion_secret_key
+    depends_on:
+      db:
+        condition: service_healthy
+
+  pharmacy-treatment-service:
+    build: ./services/pharmacy-treatment-service
+    environment:
+      DATABASE_URL: mysql+pymysql://root:root@db:3306/florion_pharmacy
+      JWT_SECRET: florion_secret_key
+      EMR_SERVICE_URL: http://emr-service:8000
+    depends_on:
+      db:
+        condition: service_healthy
+      emr-service:
+        condition: service_started
+
+  inpatient-service:
+    build: ./services/inpatient-service
+    environment:
+      DATABASE_URL: mysql+pymysql://root:root@db:3306/florion_inpatient
+    depends_on:
+      db:
+        condition: service_healthy
+
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - emr-service
+      - pharmacy-treatment-service
+      - inpatient-service
+
+configs:
+  mysql_init:
+    content: |
+      CREATE DATABASE IF NOT EXISTS florion_emr;
+      CREATE DATABASE IF NOT EXISTS florion_pharmacy;
+      CREATE DATABASE IF NOT EXISTS florion_inpatient;
+
+volumes:
+  florion_ms_data:

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getUser } from '../../utils/storage';
 import api from '../../config/api';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function Beranda() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -93,6 +95,23 @@ export default function Beranda() {
           </View>
         </LinearGradient>
 
+        {/* MENU CEPAT RAWAT INAP (US-2004) */}
+        <TouchableOpacity
+          style={styles.quickActionCard}
+          onPress={() => router.push('/inpatient')}
+        >
+          <View style={styles.quickActionLeft}>
+            <View style={styles.quickActionIcon}>
+              <Text style={{ fontSize: 22 }}>🏥</Text>
+            </View>
+            <View>
+              <Text style={styles.quickActionTitle}>Kelola Rawat Inap</Text>
+              <Text style={styles.quickActionSub}>Pendaftaran kandang, daily monitoring & pemulangan</Text>
+            </View>
+          </View>
+          <Text style={styles.quickActionArrow}>→</Text>
+        </TouchableOpacity>
+
         {/* IDENTITAS KLINIK & STATISTIK */}
         <View style={styles.row}>
 
@@ -132,7 +151,7 @@ export default function Beranda() {
               <Text style={styles.chartTitle}>Ringkasan Data</Text>
               <View style={styles.chartContainer}>
                 {chartData.map((item, index) => {
-                  const barHeight = (item.value / maxVal) * 120; // Grafik sedikit lebih pendek
+                  const barHeight = (item.value / maxVal) * 120;
                   return (
                     <View key={index} style={styles.barGroup}>
                       <Text style={styles.barValue}>{item.value}</Text>
@@ -154,9 +173,9 @@ export default function Beranda() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' }, // Background abu-abu muda agar card menonjol
+  container: { flex: 1, backgroundColor: '#F3F4F6' },
   scroll: { padding: 24, paddingBottom: 60, alignItems: 'center' },
-  contentWrapper: { width: '100%', maxWidth: 1000 }, // Lebar maksimal agar tidak melar di web
+  contentWrapper: { width: '100%', maxWidth: 1000 },
 
   // WELCOME BANNER
   welcomeBanner: {
@@ -175,8 +194,31 @@ const styles = StyleSheet.create({
   welcomeSubtitle: { fontSize: 14, color: '#E6F4F1', fontWeight: '500' },
   welcomeIcon: { width: 64, height: 64, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 
+  // MENU CEPAT RAWAT INAP
+  quickActionCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  quickActionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+  quickActionIcon: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#CCFBF1', alignItems: 'center', justifyContent: 'center' },
+  quickActionTitle: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  quickActionSub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  quickActionArrow: { fontSize: 20, fontWeight: 'bold', color: '#0D9488', marginLeft: 8 },
+
   // LAYOUT BERDAMPINGAN (FLEXBOX)
-  row: { flexDirection: 'row', gap: 24, flexWrap: 'wrap' }, // Flex wrap agar turun ke bawah di HP
+  row: { flexDirection: 'row', gap: 24, flexWrap: 'wrap' },
   colLeft: { flex: 1, minWidth: 300 },
   colRight: { flex: 1, minWidth: 300 },
 
