@@ -22,6 +22,7 @@ export default function RootLayout() {
       else if (pathname.includes('patient-form')) pageTitle = 'Form Pasien | Florion Petcare';
       else if (pathname.includes('owner-form')) pageTitle = 'Form Pemilik | Florion Petcare';
       else if (pathname.includes('service-form')) pageTitle = 'Form Layanan | Florion Petcare';
+      else if (pathname.includes('patient-detail')) pageTitle = 'Detail Pasien | Florion Petcare';
       else if (pathname.includes('owner-detail')) pageTitle = 'Detail Pemilik | Florion Petcare';
 
       // Ubah judul di tab browser
@@ -41,6 +42,7 @@ export default function RootLayout() {
       <Stack.Screen name="owner-form" options={{ headerShown: false }} />
       <Stack.Screen name="service-form" options={{ headerShown: false }} />
       <Stack.Screen name="owner-detail" options={{ headerShown: false }} />
+      <Stack.Screen name="patient-detail" options={{ headerShown: false }} />
     </Stack>
   );
 }
