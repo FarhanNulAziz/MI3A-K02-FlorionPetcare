@@ -135,42 +135,50 @@ class PatientController extends Controller
      *
      * Mendukung filter berdasarkan tanggal pencatatan.
      */
+
+
     public function medicalRecords(Request $request, Patient $patient)
     {
-        // Validasi filter tanggal jika dikirimkan.
+        // Validasi filter tanggal
         $validated = $request->validate([
             'date' => ['sometimes', 'date_format:Y-m-d'],
         ]);
 
-        // Ambil riwayat medis berdasarkan pasien.
+        // Ambil riwayat medis pasien beserta nama dokter
         $query = $patient->medicalRecords()
             ->with('user:id,name,role');
 
-        // Filter berdasarkan tanggal pencatatan.
         if (!empty($validated['date'])) {
             $query->whereDate('created_at', $validated['date']);
         }
 
-        // Urutkan secara kronologis (terlama ke terbaru).
+        // Urutkan dari terbaru ke terlama
         $medicalRecords = $query
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        // Jika belum ada riwayat medis.
-        if ($medicalRecords->isEmpty()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Belum ada riwayat',
-                'data' => [],
-            ]);
-        }
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($record) {
+                return [
+                    'id' => $record->id,
+                    'patient_id' => $record->patient_id,
+                    'doctor_name' => $record->user?->name ?? 'Dokter',
+                    'subjective' => $record->subjective,
+                    'objective' => $record->objective,
+                    'assessment' => $record->assessment,
+                    'plan' => $record->plan,
+                    'temperature' => $record->temperature,
+                    'created_at' => $record->created_at,
+                ];
+            });
 
         return response()->json([
             'success' => true,
-            'message' => 'Riwayat medis berhasil ditemukan.',
-            'data' => $medicalRecords,
+            'patient_id' => $patient->id,
+            'total' => $medicalRecords->count(),
+            'timeline' => $medicalRecords,
         ]);
     }
+
+
 
 
     public function destroy(Patient $patient)
