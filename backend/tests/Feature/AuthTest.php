@@ -196,6 +196,6 @@ class AuthTest extends TestCase
         }
 
         $this->seed();
-        $this->assertSame(4, User::count());
+        $this->assertSame(5, User::count());
     }
 }

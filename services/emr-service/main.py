@@ -5,7 +5,6 @@ from fastapi import FastAPI, Depends, HTTPException, Header
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Text, Float, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from fastapi.middleware.cors import CORSMiddleware
 
 DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://root:root@db:3306/florion_emr")
 JWT_SECRET = os.getenv("JWT_SECRET", "florion_secret_key")
@@ -38,14 +37,6 @@ class MedicalRecord(Base):
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Florion EMR Service (US-2001 & US-2002)")
-# Mengizinkan akses API dari aplikasi Expo Web di browser
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
-)
 
 def get_db():
     db = SessionLocal()

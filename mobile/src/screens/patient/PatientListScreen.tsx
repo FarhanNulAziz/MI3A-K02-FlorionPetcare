@@ -97,6 +97,14 @@ export default function PatientListScreen() {
                 </View>
                 <View style={styles.cardBody}>
                     <Text style={styles.ownerText}>Pemilik: {item.owner?.name || '-'}</Text>
+                    {(userRole === 'dokter' || userRole === 'paramedik') && (
+                        <TouchableOpacity
+                            style={styles.prescriptionBtn}
+                            onPress={() => router.push({ pathname: '/prescription-form', params: { patientId: String(item.id), patientName: item.name } })}
+                        >
+                            <Text style={styles.prescriptionBtnText}>Resep</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </TouchableOpacity>
 
@@ -172,6 +180,8 @@ const styles = StyleSheet.create({
     subtitle: { fontSize: 12, fontWeight: '500', color: '#6B7280', marginTop: 2 },
     cardBody: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     ownerText: { fontSize: 12, color: '#0D9488', fontWeight: '600', flex: 1 },
+    prescriptionBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#E6F4F1', marginLeft: 8 },
+    prescriptionBtnText: { fontSize: 12, fontWeight: '700', color: '#0D9488' },
     actionsWrapper: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#F3F4F6', backgroundColor: '#FAFAFA', zIndex: 10 },
     actionBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
     actionEdit: { fontSize: 14, fontWeight: 'bold', color: '#0D9488' },
