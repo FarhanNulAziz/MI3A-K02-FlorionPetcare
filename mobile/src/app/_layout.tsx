@@ -50,12 +50,16 @@ export default function RootLayout() {
       <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-      {/* set headerShown: false agar tombol kembali buatan kalian yang dipakai */}
       <Stack.Screen name="patient-form" options={{ headerShown: false }} />
       <Stack.Screen name="owner-form" options={{ headerShown: false }} />
       <Stack.Screen name="service-form" options={{ headerShown: false }} />
       <Stack.Screen name="owner-detail" options={{ headerShown: false }} />
       <Stack.Screen name="soap-form" options={{ headerShown: false }} />
+      <Stack.Screen name="prescription-form" options={{ headerShown: false }} />
+      <Stack.Screen name="patient-detail" options={{ headerShown: false }} />
+      <Stack.Screen name="inpatient" options={{ headerShown: false }} />
+      <Stack.Screen name="inpatient-form" options={{ headerShown: false }} />
+      <Stack.Screen name="inpatient-detail" options={{ headerShown: false }} />
     </Stack>
   );
 }
