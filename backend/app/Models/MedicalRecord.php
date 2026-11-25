@@ -18,7 +18,18 @@ class MedicalRecord extends Model
         'objective',
         'assessment',
         'plan',
+        'temperature',
     ];
+
+    /**
+     * Tipe data kolom.
+     */
+    protected function casts(): array
+    {
+        return [
+            'temperature' => 'decimal:1',
+        ];
+    }
 
     /**
      * Relasi ke pasien.
