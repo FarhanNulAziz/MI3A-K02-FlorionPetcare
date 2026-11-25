@@ -130,7 +130,7 @@ export default function PatientListScreen() {
 
     const renderItem = ({ item }: { item: any }) => (
         <View style={styles.card}>
-            <View style={styles.cardClickArea}>
+            <TouchableOpacity style={styles.cardClickArea} onPress={() => router.push({ pathname: '/patient-detail', params: { patient: JSON.stringify(item) } })} activeOpacity={0.7}>
                 <View style={styles.cardHeader}>
                     <View style={styles.avatar}>
                         <Text style={styles.avatarText}>
@@ -163,7 +163,7 @@ export default function PatientListScreen() {
                         Pemilik: {item.owner?.name || '-'}
                     </Text>
                 </View>
-            </View>
+            </TouchableOpacity>
 
             {/* SEMBUNYIKAN TOMBOL JIKA PEMILIK */}
             {userRole !== 'pemilik' && (

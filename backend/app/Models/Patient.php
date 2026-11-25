@@ -34,9 +34,7 @@ class Patient extends Model
         return $this->belongsTo(Owner::class);
     }
 
-    /**
-     * Relasi ke seluruh riwayat medis pasien.
-     */
+    // Relasi pasien dengan riwayat pemeriksaan medis
     public function medicalRecords(): HasMany
     {
         return $this->hasMany(MedicalRecord::class);

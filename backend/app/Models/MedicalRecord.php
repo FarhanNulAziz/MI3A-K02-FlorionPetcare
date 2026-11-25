@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MedicalRecord extends Model
 {
@@ -17,7 +18,18 @@ class MedicalRecord extends Model
         'objective',
         'assessment',
         'plan',
+        'temperature',
     ];
+
+    /**
+     * Tipe data kolom.
+     */
+    protected function casts(): array
+    {
+        return [
+            'temperature' => 'decimal:1',
+        ];
+    }
 
     /**
      * Relasi ke pasien.
@@ -33,5 +45,23 @@ class MedicalRecord extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Relasi ke resep obat pada rekam medis ini.
+     */
+    public function prescriptions(): HasMany
+    {
+        return $this->hasMany(Prescription::class);
+    }
+
+    /**
+     * Relasi ke tindakan pada rekam medis ini.
+     *
+     * Memakai model pivot karena setiap baris punya tarif, consent, dan custom_name sendiri.
+     */
+    public function treatmentItems(): HasMany
+    {
+        return $this->hasMany(MedicalRecordTreatment::class);
     }
 }

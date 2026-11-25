@@ -94,7 +94,8 @@ class User extends Authenticatable implements JWTSubject
     public function getJWTCustomClaims()
     {
         return [
-            'role' => $this->role, // role ikut tersimpan di dalam token JWT
+            'role' => $this->role,
+            'name' => $this->name,
         ];
     }
 

@@ -30,9 +30,13 @@ services:
     build: ./services/pharmacy-treatment-service
     environment:
       DATABASE_URL: mysql+pymysql://root:root@db:3306/florion_pharmacy
+      JWT_SECRET: florion_secret_key
+      EMR_SERVICE_URL: http://emr-service:8000
     depends_on:
       db:
         condition: service_healthy
+      emr-service:
+        condition: service_started
 
   inpatient-service:
     build: ./services/inpatient-service
