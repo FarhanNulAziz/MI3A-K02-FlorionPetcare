@@ -36,6 +36,8 @@ export default function RootLayout() {
       else if (pathname.includes("owner-detail"))
         pageTitle = "Detail Pemilik | Florion Petcare";
 
+      else if (pathname.includes('soap-form')) pageTitle = 'Catat Diagnostik SOAP | Florion Petcare';
+
       // Ubah judul di tab browser
       document.title = pageTitle;
     }
@@ -53,7 +55,7 @@ export default function RootLayout() {
       <Stack.Screen name="owner-form" options={{ headerShown: false }} />
       <Stack.Screen name="service-form" options={{ headerShown: false }} />
       <Stack.Screen name="owner-detail" options={{ headerShown: false }} />
-      <Stack.Screen name="prescription-form" options={{ headerShown: false }} />
+      <Stack.Screen name="soap-form" options={{ headerShown: false }} />
     </Stack>
   );
 }
