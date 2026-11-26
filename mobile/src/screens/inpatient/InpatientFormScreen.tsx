@@ -1,33 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
+  ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
-
 import { admitInpatient, getPatientsList } from '../../services/inpatientService';
-import CustomAlert from '../../components/custom-alert';
+
+const PACKAGES = [
+  { price: '35000', title: 'Paket Standar', desc: 'Kandang standar, pakan harian, observasi rutin' },
+  { price: '50000', title: 'Paket Intensif', desc: 'Kandang luas, pakan khusus, pemantauan intensif' },
+];
 
 export default function InpatientFormScreen() {
   const router = useRouter();
   const [patients, setPatients] = useState<any[]>([]);
-  const [loadingPatients, setLoadingPatients] = useState(true);
-
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [packagePrice, setPackagePrice] = useState('35000');
   const [cageNumber, setCageNumber] = useState('');
   const [admissionDate, setAdmissionDate] = useState(new Date().toISOString().split('T')[0]);
-  const [loading, setLoading] = useState(false);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info' as any, onConfirm: undefined as any });
+  const notify = (title: string, message: string, onDone?: () => void) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}: ${message}`);
+      onDone?.();
+    } else {
+      Alert.alert(title, message, [{ text: 'OK', onPress: onDone }]);
+    }
+  };
 
   useEffect(() => {
     const loadPatients = async () => {
       try {
         const res = await getPatientsList();
-        setPatients(res.data || []);
-      } catch (e) {
-        console.log('Gagal memuat pasien:', e);
+        const list = res.data || res || [];
+        setPatients(Array.isArray(list) ? list : []);
+      } catch {
+        notify('Peringatan', 'Gagal memuat daftar pasien dari server.');
       } finally {
         setLoadingPatients(false);
       }
@@ -35,158 +45,164 @@ export default function InpatientFormScreen() {
     loadPatients();
   }, []);
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/inpatient');
-    }
-  };
-
-  const handleSave = async () => {
-    if (!selectedPatientId || !cageNumber || !admissionDate || !packagePrice) {
-      setAlert({ visible: true, title: 'Validasi Gagal', message: 'Pilih pasien dan lengkapi seluruh kolom wajib!', type: 'error', onConfirm: undefined });
+  const handleSubmit = async () => {
+    if (!selectedPatientId || !cageNumber.trim() || !admissionDate.trim() || !packagePrice) {
+      notify('Peringatan', 'Pilih pasien, paket rawat inap, dan nomor kandang terlebih dahulu.');
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     try {
       await admitInpatient({
         patient_id: selectedPatientId,
-        package_price_per_day: parseFloat(packagePrice),
-        cage_number: cageNumber,
-        admission_date: admissionDate,
+        package_price_per_day: parseInt(packagePrice, 10),
+        cage_number: cageNumber.trim(),
+        admission_date: admissionDate.trim(),
       });
-
-      setAlert({
-        visible: true,
-        title: 'Sukses',
-        message: 'Pasien berhasil didaftarkan ke rawat inap.',
-        type: 'success',
-        onConfirm: () => {
-          setAlert((prev) => ({ ...prev, visible: false }));
-          handleBack();
-        },
+      notify('Berhasil', 'Pasien berhasil didaftarkan ke rawat inap.', () => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/inpatient');
       });
     } catch (error: any) {
-      let msg = error.response?.data?.message || 'Gagal mendaftarkan rawat inap';
-      if (error.response?.data?.errors) {
-        const firstError = Object.values(error.response.data.errors)[0];
-        msg = Array.isArray(firstError) ? firstError[0] : firstError;
-      }
-      setAlert({ visible: true, title: 'Gagal', message: msg, type: 'error', onConfirm: undefined });
+      const msg = error?.response?.data?.detail || error?.response?.data?.message || 'Gagal mendaftarkan rawat inap.';
+      notify('Gagal', msg);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-          <Text style={styles.backText}>← Kembali</Text>
+        <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/inpatient'))}>
+          <Text style={styles.backText}>? Kembali</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Daftar Rawat Inap</Text>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.label}>Pilih Pasien *</Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.sectionLabel}>1. Pilih Pasien</Text>
           {loadingPatients ? (
-            <ActivityIndicator color="#0D9488" style={{ marginVertical: 10 }} />
+            <ActivityIndicator color="#0D9488" style={{ marginVertical: 16 }} />
           ) : (
-            <View style={styles.chipWrap}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.patientScroll}>
               {patients.map((p) => {
-                const active = selectedPatientId === p.id;
+                const selected = selectedPatientId === p.id;
                 return (
                   <TouchableOpacity
                     key={p.id}
-                    style={[styles.chip, active && styles.chipActive]}
+                    style={[styles.patientChip, selected && styles.patientChipActive]}
                     onPress={() => setSelectedPatientId(p.id)}
                   >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {p.name} ({p.owner?.name || 'Tanpa Pemilik'})
+                    <Text style={[styles.patientChipName, selected && styles.patientChipNameActive]}>{p.name}</Text>
+                    <Text style={[styles.patientChipSub, selected && { color: '#CCFBF1' }]}>
+                      {p.species} ? {p.owner?.name || 'Pemilik'}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           )}
 
-          <Text style={styles.label}>Pilih Paket Perawatan / Hari *</Text>
+          <Text style={styles.sectionLabel}>2. Pilih Paket Tarif Harian</Text>
           <View style={styles.packageRow}>
-            {[
-              { label: 'Paket Standar', price: '35000' },
-              { label: 'Paket Intensif', price: '50000' },
-            ].map((pkg) => {
+            {PACKAGES.map((pkg) => {
               const active = packagePrice === pkg.price;
               return (
                 <TouchableOpacity
                   key={pkg.price}
-                  style={[styles.pkgCard, active && styles.pkgCardActive]}
+                  style={[styles.packageCard, active && styles.packageCardActive]}
                   onPress={() => setPackagePrice(pkg.price)}
                 >
-                  <Text style={[styles.pkgTitle, active && styles.pkgTextActive]}>{pkg.label}</Text>
-                  <Text style={[styles.pkgPrice, active && styles.pkgTextActive]}>
-                    Rp {Number(pkg.price).toLocaleString('id-ID')}/hari
-                  </Text>
+                  <Text style={[styles.packageTitle, active && { color: '#0D9488' }]}>{pkg.title}</Text>
+                  <Text style={styles.packagePrice}>Rp {Number(pkg.price).toLocaleString('id-ID')}/hari</Text>
+                  <Text style={styles.packageDesc}>{pkg.desc}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          <Text style={styles.label}>Nomor Kandang *</Text>
-          <TextInput
-            style={styles.input}
-            value={cageNumber}
-            onChangeText={setCageNumber}
-            placeholder="Contoh: KDG-01"
-            placeholderTextColor="#9CA3AF"
-          />
+          <View style={styles.fieldCard}>
+            <Text style={styles.inputLabel}>3. Nomor / Kode Kandang</Text>
+            <TextInput
+              style={styles.input}
+              value={cageNumber}
+              onChangeText={setCageNumber}
+              placeholder="Contoh: KDG-01 atau VIP-A2"
+              placeholderTextColor="#94A3B8"
+            />
 
-          <Text style={styles.label}>Tanggal Masuk (YYYY-MM-DD) *</Text>
-          <TextInput
-            style={styles.input}
-            value={admissionDate}
-            onChangeText={setAdmissionDate}
-            placeholder="2026-11-20"
-            placeholderTextColor="#9CA3AF"
-          />
+            <Text style={[styles.inputLabel, { marginTop: 14 }]}>4. Tanggal Masuk (YYYY-MM-DD)</Text>
+            <TextInput
+              style={styles.input}
+              value={admissionDate}
+              onChangeText={setAdmissionDate}
+              placeholder="2026-11-26"
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
 
-          <TouchableOpacity style={styles.btnSave} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnText}>Daftarkan Rawat Inap</Text>}
+          <TouchableOpacity
+            style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitBtnText}>Simpan Pendaftaran Rawat Inap</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <CustomAlert
-        visible={alert.visible} title={alert.title} message={alert.message} type={alert.type}
-        onClose={() => setAlert({ ...alert, visible: false })} onConfirm={alert.onConfirm}
-      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
-  header: { padding: 24, paddingTop: 40, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  backBtn: { marginRight: 16 },
-  backText: { color: '#0D9488', fontWeight: '600', fontSize: 14 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
-  scroll: { padding: 24, maxWidth: 800, width: '100%', alignSelf: 'center' },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 16 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB' },
-  chipActive: { backgroundColor: '#0D9488', borderColor: '#0D9488' },
-  chipText: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  chipTextActive: { color: '#FFF', fontWeight: '700' },
-  packageRow: { flexDirection: 'row', gap: 12 },
-  pkgCard: { flex: 1, backgroundColor: '#FFF', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-  pkgCardActive: { backgroundColor: '#0D9488', borderColor: '#0D9488' },
-  pkgTitle: { fontSize: 13, fontWeight: '700', color: '#111827' },
-  pkgPrice: { fontSize: 12, color: '#6B7280', marginTop: 4 },
-  pkgTextActive: { color: '#FFF' },
-  input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, color: '#111827' },
-  btnSave: { backgroundColor: '#0D9488', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 32, elevation: 4 },
-  btnText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-  });
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20, paddingTop: 42, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
+  },
+  backText: { color: '#0D9488', fontWeight: '700', fontSize: 15, marginRight: 14 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  content: { padding: 20, paddingBottom: 44 },
+
+  sectionLabel: { fontSize: 14, fontWeight: '800', color: '#1E293B', marginBottom: 10 },
+  patientScroll: { marginBottom: 20 },
+  patientChip: {
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0',
+    borderRadius: 12, padding: 14, marginRight: 10, minWidth: 150,
+  },
+  patientChipActive: { backgroundColor: '#0D9488', borderColor: '#0D9488' },
+  patientChipName: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  patientChipNameActive: { color: '#FFFFFF' },
+  patientChipSub: { fontSize: 12, color: '#64748B', marginTop: 3 },
+
+  packageRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  packageCard: {
+    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: '#E2E8F0',
+  },
+  packageCardActive: { borderColor: '#0D9488', backgroundColor: '#F0FDFA' },
+  packageTitle: { fontSize: 14, fontWeight: '800', color: '#334155' },
+  packagePrice: { fontSize: 15, fontWeight: '800', color: '#0F172A', marginVertical: 4 },
+  packageDesc: { fontSize: 11, color: '#64748B', lineHeight: 16 },
+
+  fieldCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 20,
+  },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 8 },
+  input: {
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1',
+    borderRadius: 10, padding: 12, fontSize: 14, color: '#0F172A',
+  },
+  submitBtn: {
+    backgroundColor: '#0D9488', paddingVertical: 16, borderRadius: 12, alignItems: 'center',
+  },
+  submitBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+});

@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createSOAPRecord } from '../../services/emrService';
@@ -24,23 +17,21 @@ export default function SOAPFormScreen() {
   const [plan, setPlan] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const showMessage = (title: string, message: string) => {
+  const notify = (title: string, message: string, onDone?: () => void) => {
     if (Platform.OS === 'web') {
-      window.alert(`${title}\n\n${message}`);
+      window.alert(`${title}: ${message}`);
+      onDone?.();
+    } else {
+      Alert.alert(title, message, [{ text: 'OK', onPress: onDone }]);
     }
   };
 
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/pasien');
-    }
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/pasien');
   };
 
   const handleSave = async () => {
-    console.log('TOMBOL SIMPAN SOAP DIKLIK');
-
     if (
       !patientId ||
       !temperature.trim() ||
@@ -49,21 +40,19 @@ export default function SOAPFormScreen() {
       !assessment.trim() ||
       !plan.trim()
     ) {
-      showMessage('Peringatan', 'Semua kolom wajib diisi.');
+      notify('Peringatan', 'Semua kolom pemeriksaan SOAP & suhu tubuh wajib diisi.');
       return;
     }
 
-    const temp = Number(temperature);
-
+    const temp = Number(temperature.replace(',', '.'));
     if (Number.isNaN(temp) || temp < 30 || temp > 45) {
-      showMessage('Peringatan', 'Suhu harus berupa angka antara 30–45°C.');
+      notify('Peringatan', 'Suhu tubuh harus berupa angka valid antara 30 - 45\u00B0C.');
       return;
     }
 
     setLoading(true);
-
     try {
-      const result = await createSOAPRecord({
+      await createSOAPRecord({
         patient_id: Number(patientId),
         temperature: temp,
         subjective: subjective.trim(),
@@ -71,39 +60,37 @@ export default function SOAPFormScreen() {
         assessment: assessment.trim(),
         plan: plan.trim(),
       });
-
-      console.log('SOAP BERHASIL DISIMPAN:', result);
-
-      showMessage('Berhasil', 'Catatan SOAP berhasil disimpan.');
-      handleBack();
+      notify('Berhasil', 'Catatan diagnostik SOAP berhasil disimpan ke rekam medis.', handleBack);
     } catch (error: any) {
-      console.error('GAGAL MENYIMPAN SOAP:', error);
-
-      showMessage(
-        'Gagal',
-        error?.message || 'Gagal menyimpan catatan SOAP.'
-      );
+      notify('Gagal Menyimpan', error?.message || 'Terjadi kesalahan saat menyimpan catatan SOAP.');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderField = (
-    label: string,
+  const renderSOAPField = (
+    badge: string,
+    badgeColor: string,
+    title: string,
     value: string,
     onChangeText: (text: string) => void,
-    placeholder: string,
-    multiline = true
+    placeholder: string
   ) => (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={styles.cardField}>
+      <View style={styles.fieldHeader}>
+        <View style={[styles.badge, { backgroundColor: badgeColor }]}>
+          <Text style={styles.badgeText}>{badge}</Text>
+        </View>
+        <Text style={styles.label}>{title}</Text>
+      </View>
       <TextInput
-        style={[styles.input, multiline && styles.multilineInput]}
+        style={[styles.input, styles.multilineInput]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        multiline={multiline}
-        textAlignVertical={multiline ? 'top' : 'center'}
+        placeholderTextColor="#94A3B8"
+        multiline
+        textAlignVertical="top"
       />
     </View>
   );
@@ -111,59 +98,58 @@ export default function SOAPFormScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.topBar}>
         <TouchableOpacity onPress={handleBack}>
-          <Text style={styles.backText}>‹ Kembali</Text>
+          <Text style={styles.backText}>{'\u2190'} Kembali</Text>
         </TouchableOpacity>
+        <Text style={styles.topBarTitle}>Diagnostik SOAP</Text>
+      </View>
 
-        <Text style={styles.title}>Catat Diagnostik SOAP</Text>
-        <Text style={styles.subtitle}>
-          Isi hasil pemeriksaan medis pasien.
-        </Text>
-
-        <View style={styles.patientCard}>
-          <Text style={styles.patientLabel}>Pasien</Text>
-          <Text style={styles.patientName}>
-            {patientName || 'Pasien belum dipilih'}
-          </Text>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.patientBanner}>
+          <Text style={styles.patientEmoji}>{'\u{1FA7A}'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.patientLabel}>Pemeriksaan Pasien</Text>
+            <Text style={styles.patientName}>{patientName || `Pasien #${patientId}`}</Text>
+          </View>
         </View>
 
-        {renderField(
-          'Suhu Tubuh (°C)',
-          temperature,
-          setTemperature,
-          'Contoh: 38.5',
-          false
+        <View style={styles.cardField}>
+          <Text style={styles.label}>{'\u{1F321}\u{FE0F}'} Suhu Tubuh ({'\u00B0'}C)</Text>
+          <TextInput
+            style={styles.input}
+            value={temperature}
+            onChangeText={setTemperature}
+            placeholder="Contoh: 38.5 (Normal anjing/kucing: 38.0 - 39.2)"
+            placeholderTextColor="#94A3B8"
+            keyboardType="decimal-pad"
+          />
+        </View>
+
+        {renderSOAPField(
+          'S', '#2563EB', 'Subjective (Keluhan & Anamnesis)',
+          subjective, setSubjective,
+          'Catat keluhan pemilik hewan, nafsu makan, durasi gejala...'
         )}
 
-        {renderField(
-          'S - Subjective',
-          subjective,
-          setSubjective,
-          'Masukkan keluhan atau informasi dari pemilik...'
+        {renderSOAPField(
+          'O', '#0D9488', 'Objective (Pemeriksaan Fisik & Klinis)',
+          objective, setObjective,
+          'Catat hasil inspeksi fisik, palpasi, auskultasi, mukosa...'
         )}
 
-        {renderField(
-          'O - Objective',
-          objective,
-          setObjective,
-          'Masukkan hasil pemeriksaan fisik...'
+        {renderSOAPField(
+          'A', '#D97706', 'Assessment (Diagnosis / Diferensial)',
+          assessment, setAssessment,
+          'Catat diagnosis utama atau dugaan penyakit...'
         )}
 
-        {renderField(
-          'A - Assessment',
-          assessment,
-          setAssessment,
-          'Masukkan hasil penilaian atau diagnosis...'
-        )}
-
-        {renderField(
-          'P - Plan',
-          plan,
-          setPlan,
-          'Masukkan rencana tindakan atau pengobatan...'
+        {renderSOAPField(
+          'P', '#DC2626', 'Plan (Rencana Terapi & Tindakan)',
+          plan, setPlan,
+          'Catat rencana pengobatan, resep obat, tindakan, atau rawat inap...'
         )}
 
         <TouchableOpacity
@@ -174,9 +160,7 @@ export default function SOAPFormScreen() {
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.saveButtonText}>
-              Simpan Catatan SOAP
-            </Text>
+            <Text style={styles.saveButtonText}>Simpan Catatan SOAP</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -185,80 +169,44 @@ export default function SOAPFormScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F7F9FC',
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  topBar: {
+    paddingHorizontal: 20, paddingTop: 42, paddingBottom: 16, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
   },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
+  backText: { color: '#0D9488', fontSize: 15, fontWeight: '700', marginRight: 14 },
+  topBarTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  content: { padding: 20, paddingBottom: 48 },
+
+  patientBanner: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDFA',
+    borderWidth: 1, borderColor: '#99F6E4', padding: 16, borderRadius: 14, marginBottom: 18,
   },
-  backText: {
-    color: '#3976B9',
-    fontSize: 16,
-    marginBottom: 20,
+  patientEmoji: { fontSize: 28, marginRight: 12 },
+  patientLabel: { fontSize: 11, fontWeight: '700', color: '#0F766E', textTransform: 'uppercase' },
+  patientName: { fontSize: 17, fontWeight: '800', color: '#0F172A', marginTop: 2 },
+
+  cardField: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14, marginBottom: 14,
+    borderWidth: 1, borderColor: '#E2E8F0',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#243447',
+  fieldHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  badge: {
+    width: 24, height: 24, borderRadius: 6, alignItems: 'center',
+    justifyContent: 'center', marginRight: 8,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#718096',
-    marginTop: 6,
-    marginBottom: 20,
-  },
-  patientCard: {
-    backgroundColor: '#EAF2FA',
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  patientLabel: {
-    fontSize: 13,
-    color: '#64748B',
-  },
-  patientName: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#243447',
-    marginTop: 5,
-  },
-  field: {
-    marginBottom: 18,
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#334155',
-    marginBottom: 8,
-  },
+  badgeText: { color: '#FFFFFF', fontWeight: '800', fontSize: 12 },
+  label: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#D5DDE7',
-    borderRadius: 9,
-    padding: 13,
-    fontSize: 14,
-    color: '#243447',
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1',
+    borderRadius: 10, padding: 12, fontSize: 14, color: '#0F172A',
   },
-  multilineInput: {
-    minHeight: 100,
-  },
+  multilineInput: { minHeight: 88, marginTop: 2 },
   saveButton: {
-    backgroundColor: '#3976B9',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: '#0D9488', paddingVertical: 16, borderRadius: 12,
+    alignItems: 'center', marginTop: 8, shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 3,
   },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  disabledButton: { opacity: 0.6 },
+  saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
 });

@@ -18,6 +18,8 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/profile', [AuthController::class, 'updateProfile']);
 
     // Semua role bisa akses Pasien (Backend akan memfilter datanya)
     Route::middleware('role:admin,manajer,dokter,paramedik,pemilik')->group(function () {

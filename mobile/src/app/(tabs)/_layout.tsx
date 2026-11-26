@@ -1,5 +1,5 @@
 import { Drawer } from 'expo-router/drawer';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Modal } from 'react-native';
 import { useEffect, useState } from 'react';
 import { getUser, clearSession } from '../../utils/storage';
 import { useRouter, usePathname } from 'expo-router';
@@ -17,7 +17,6 @@ function ProfileMenu({ visible, onClose, user, onLogout }: any) {
   return (
     <Modal visible={visible} transparent animationType="fade">
       <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
-        {/* Kotak Menu */}
         <View style={styles.dropdownMenu}>
           <View style={styles.dropdownHeader}>
             <Text style={styles.dropdownName}>{user?.name || 'Pengguna'}</Text>
@@ -25,14 +24,14 @@ function ProfileMenu({ visible, onClose, user, onLogout }: any) {
           </View>
 
           <TouchableOpacity style={styles.dropdownItem} onPress={goToProfile}>
-            <Text style={styles.dropdownIcon}>⚙️</Text>
+            <Text style={styles.dropdownIcon}>{'\u2699\uFE0F'}</Text>
             <Text style={styles.dropdownText}>Profil Saya</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity style={styles.dropdownItem} onPress={onLogout}>
-            <Text style={styles.dropdownIcon}>🚪</Text>
+            <Text style={styles.dropdownIcon}>{'\u{1F6AA}'}</Text>
             <Text style={[styles.dropdownText, { color: '#EF4444' }]}>Keluar (Logout)</Text>
           </TouchableOpacity>
         </View>
@@ -58,8 +57,8 @@ function CustomDrawerContent(props: any) {
     }
   };
 
-  const MenuItem = ({ title, icon, path }: { title: string, icon: string, path: string }) => {
-    const isActive = pathname === path || (path === '/' && pathname === '/');
+  const MenuItem = ({ title, icon, path }: { title: string; icon: string; path: string }) => {
+    const isActive = pathname === path;
     return (
       <TouchableOpacity
         style={[styles.menuItem, isActive && styles.menuItemActive]}
@@ -71,15 +70,17 @@ function CustomDrawerContent(props: any) {
     );
   };
 
-  const canAccessPemilik = user?.role === 'admin' || user?.role === 'manajer' || user?.role === 'paramedik';
-  const canAccessPasien = user?.role === 'admin' || user?.role === 'manajer' || user?.role === 'dokter' || user?.role === 'paramedik' || user?.role === 'pemilik';
-  const canAccessLayanan = user?.role === 'admin' || user?.role === 'manajer';
+  const role = String(user?.role || '').toLowerCase();
+  const canAccessPemilik = ['admin', 'manajer', 'paramedik'].includes(role);
+  const canAccessPasien = ['admin', 'manajer', 'dokter', 'paramedik', 'pemilik'].includes(role);
+  const canAccessRawatInap = ['admin', 'manajer', 'dokter', 'paramedik'].includes(role);
+  const canAccessLayanan = ['admin', 'manajer'].includes(role);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <View style={styles.drawerHeader}>
         <View style={styles.logoBox}>
-          <Text style={{ fontSize: 28 }}>🐾</Text>
+          <Text style={{ fontSize: 28 }}>{'\u{1F43E}'}</Text>
         </View>
         <View>
           <Text style={styles.logoTitle}>Florion Petcare</Text>
@@ -88,11 +89,20 @@ function CustomDrawerContent(props: any) {
       </View>
 
       <ScrollView contentContainerStyle={styles.menuContainer} showsVerticalScrollIndicator={false}>
-        <MenuItem title="Dashboard" icon="📊" path="/" />
-        {canAccessPemilik && <MenuItem title="Data Pemilik" icon="👤" path="/pemilik" />}
-        {canAccessPasien && <MenuItem title={user?.role === 'pemilik' ? "Hewan Saya" : "Data Pasien"} icon="🐶" path="/pasien" />}
-        {canAccessLayanan && <MenuItem title="Master Layanan" icon="💉" path="/layanan" />}
-        <MenuItem title="Profil Saya" icon="⚙️" path="/profil" />
+        <MenuItem title="Dashboard" icon={'\u{1F4CA}'} path="/" />
+        {canAccessPemilik && <MenuItem title="Data Pemilik" icon={'\u{1F464}'} path="/pemilik" />}
+        {canAccessPasien && (
+          <MenuItem
+            title={role === 'pemilik' ? 'Hewan Saya' : 'Data Pasien'}
+            icon={'\u{1F436}'}
+            path="/pasien"
+          />
+        )}
+        {canAccessRawatInap && (
+          <MenuItem title="Rawat Inap" icon={'\u{1F3E5}'} path="/inpatient" />
+        )}
+        {canAccessLayanan && <MenuItem title="Master Layanan" icon={'\u{1F489}'} path="/layanan" />}
+        <MenuItem title="Profil Saya" icon={'\u2699\uFE0F'} path="/profil" />
       </ScrollView>
 
       <View style={styles.drawerFooter}>
@@ -151,7 +161,9 @@ export default function TabLayout() {
                 Halo, {user?.name || '...'}
               </Text>
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#0D9488', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>{user?.name?.charAt(0).toUpperCase() || 'U'}</Text>
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
+                  {user?.name?.charAt(0).toUpperCase() || 'U'}
+                </Text>
               </View>
             </TouchableOpacity>
           ),
@@ -171,7 +183,6 @@ export default function TabLayout() {
         <Drawer.Screen name="profil" options={{ title: 'Profil Saya' }} />
       </Drawer>
 
-      {/* PANGGIL DROPDOWN MENU DI SINI */}
       <ProfileMenu
         visible={menuVisible}
         onClose={() => setMenuVisible(false)}
@@ -183,13 +194,12 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  // STYLE UNTUK DROPDOWN MENU
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.2)',
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
-    paddingTop: 60, // Posisi agar muncul di bawah header
+    paddingTop: 60,
     paddingRight: 20,
   },
   dropdownMenu: {
@@ -216,7 +226,6 @@ const styles = StyleSheet.create({
   dropdownText: { fontSize: 14, fontWeight: '600', color: '#374151' },
   divider: { height: 1, backgroundColor: '#F3F4F6' },
 
-  // STYLE SIDEBAR BAWAAN
   drawerHeader: {
     padding: 24,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,

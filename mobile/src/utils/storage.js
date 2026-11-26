@@ -9,6 +9,14 @@ export const saveSession = async (token, user) => {
     }
 };
 
+export const updateStoredUser = async (user) => {
+    try {
+        await AsyncStorage.setItem('user_data', JSON.stringify(user));
+    } catch (error) {
+        console.log('Error updating stored user:', error);
+    }
+};
+
 export const getToken = async () => {
     return await AsyncStorage.getItem('access_token');
 };

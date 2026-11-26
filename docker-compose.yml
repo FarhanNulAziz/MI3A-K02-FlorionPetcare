@@ -21,7 +21,7 @@ services:
     build: ./services/emr-service
     environment:
       DATABASE_URL: mysql+pymysql://root:root@db:3306/florion_emr
-      JWT_SECRET: florion_secret_key
+      JWT_SECRET: 4nZx1Zh865fa9uSRePV0OtW23jvdxbnUHDNiR68Hoy48BEOvGztYnoRZUYUzrMwG
     depends_on:
       db:
         condition: service_healthy
@@ -30,7 +30,7 @@ services:
     build: ./services/pharmacy-treatment-service
     environment:
       DATABASE_URL: mysql+pymysql://root:root@db:3306/florion_pharmacy
-      JWT_SECRET: florion_secret_key
+      JWT_SECRET: 4nZx1Zh865fa9uSRePV0OtW23jvdxbnUHDNiR68Hoy48BEOvGztYnoRZUYUzrMwG
       EMR_SERVICE_URL: http://emr-service:8000
     depends_on:
       db:
@@ -50,6 +50,8 @@ services:
     image: nginx:alpine
     ports:
       - "8080:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
